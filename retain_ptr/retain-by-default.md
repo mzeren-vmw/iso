@@ -148,7 +148,6 @@ struct retain_attach_t {};
 template<class T>
 struct retain_ptr {
   ...
-  enum attach_t { attach_only };
   retain_ptr(retain_attach_t, T* ptr) : _ptr(ptr) {}
   void attach(retain_attach_t, T* ptr) {
     /* retain(ptr); */
