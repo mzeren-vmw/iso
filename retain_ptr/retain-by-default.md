@@ -1,5 +1,19 @@
+
+[//]: # (TODO)
+[//]: # (* Switch away from "Dwarf" terminology.)
+[//]: # (* Declare extern create, retain, release API at top)
+[//]: # (* Re-sync source with godbolt -- script it??)
+[//]: # (* Example using polymorphic lookup and "transparent" comparator?)
+[//]: # (* Example of how the extra indirection causes missed optimizations)
+[//]: # (* In "Extrapolating..." show alts of return by & and by value)
+
 # Retain by default
 
+Thoughts on "A Proposal to Add an Intrusive Smart Pointer to the C++ Standard
+Library".
+* See http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0468r0.html
+
+## Intro
 Passing a pointer generates better code than passing a smart pointer by
 reference, so we want to pass by pointer. Once one reaches that conclusion,
 retain by default is the most natural way to use retain_ptr.
@@ -96,7 +110,7 @@ void start()
 }
 ```
 
-Of course the `Dwarf*`'s lifetime is scoped to the Expedition's lifetime.
+Of course the `Dwarf*`'s lifetime is scoped to `journeyEast`'s lifetime.
 
 #### Retaining arguments
 
@@ -140,7 +154,8 @@ struct retain_ptr {
 
 #### Attach / Detach still required
 
-Of course we still need an "attaching" constructor and mutator, because often an API will give us pre-retained "poitners". Something like:
+Of course we still need an "attaching" constructor and mutator, because often an
+API will give us pre-retained "poitners". Something like:
 
 ```c++
 struct retain_attach_t {};
