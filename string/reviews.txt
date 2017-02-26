@@ -1,0 +1,98 @@
+----------------------- REVIEW 1 ---------------------
+PAPER: 51
+TITLE: Rethinking Strings
+AUTHORS: Mark Zeren
+
+Overall evaluation: 3
+
+----------- Overall evaluation -----------
+This looks to be a very well-thought out discussion for a highly relevant topic:  non-ASCII strings, where nearly all C++ developers still struggle without sufficient guidance from the C++ Standard.
+
+I appreciated the detailed outline with anecdotal information, past history and evolution, and some strategies looking forward.
+
+It would be nice if some discussion could include UTF CODECs/encoding, as these are required for a deployable solution.  I'm very interested in some of the expanded discussion on illegal sequences, and mechanisms/thoughts about 'constexpr' and non-copy "static const char*" data.
+
+Strong accept.
+
+
+----------------------- REVIEW 2 ---------------------
+PAPER: 51
+TITLE: Rethinking Strings
+AUTHORS: Mark Zeren
+
+Overall evaluation: 2
+
+----------- Overall evaluation -----------
+An interesting talk suggestion on a rather mundane subject.  I'm hoping this talk attracts a good crowd and turns into a good discussion, because it is one I would like to be present at.
+
+One sees many small entries into the basics of strings around the web, but an overall large-scale examination interests me at this point in time where std::string implementations and interfaces seem fairly settled and ordinary.
+
+
+----------------------- REVIEW 3 ---------------------
+PAPER: 51
+TITLE: Rethinking Strings
+AUTHORS: Mark Zeren
+
+Overall evaluation: 1
+
+----------- Overall evaluation -----------
+I didn't find a lot of new or novel information in the outline. The interesting part, where composing various string types is accomplished, was marked as a TODO. On the other hand, I do think the talk would be entertaining and I enjoyed the sample talk attached to this submission.
+
+
+----------------------- REVIEW 4 ---------------------
+PAPER: 51
+TITLE: Rethinking Strings
+AUTHORS: Mark Zeren
+
+Overall evaluation: 0
+
+----------- Overall evaluation -----------
+Way too much material with little focus.  Any section in the submission can form a 90-mins talk.
+
+
+----------------------- REVIEW 5 ---------------------
+PAPER: 51
+TITLE: Rethinking Strings
+AUTHORS: Mark Zeren
+
+Overall evaluation: 3
+
+----------- Overall evaluation -----------
+Hmmm... Yep. UTF8, string_view`, small string optimization, `std::text_view. Definitely yes!
+
+
+----------------------- REVIEW 6 ---------------------
+PAPER: 51
+TITLE: Rethinking Strings
+AUTHORS: Mark Zeren
+
+Overall evaluation: 2
+
+----------- Overall evaluation -----------
+90 minutes is probably a real minimum. It would hard to see all of this content in 45mins. While null-ability was in the outline, the topic of empty vs. null was not--i.e. std::basic_string's data() member cannot return null but basic_string_view::data() can. Some exploration/comparison with zstring/czstring recommendations in the CppCoreGuidelines might be nice for completeness.
+
+
+----------------------- REVIEW 7 ---------------------
+PAPER: 51
+TITLE: Rethinking Strings
+AUTHORS: Mark Zeren
+
+Overall evaluation: 3
+
+----------- Overall evaluation -----------
+This submission proposes a talk about the design of string implementations in C++. I like this submission for many reasons. First of all, std::string is one of the most popular classes from the C++ standard library. Second, the story about std::string is far from over, as people keep improving existing implementations and finding new solutions to performance problems, so the topic is certainly relevant. Third, if I understand correctly, this talk will not only talk about implementations of std::string, but paint a more general picture about string implementations and different design decisions. Sounds like this could be a great talk that library developers would find very interesting.
+
+While I didn't have the time to read the whole "Outline" section, the sheer amount of notes and bullet points in there hints to a talk that will be extremely well prepared. However I would strongly suggest that next time the author does not copy-paste this huge amount of what seems to be his own notes into the Outline section, but instead keeps it much shorter so reviewers actually have a chance to read it through.
+
+
+----------------------- REVIEW 8 ---------------------
+PAPER: 51
+TITLE: Rethinking Strings
+AUTHORS: Mark Zeren
+
+Overall evaluation: 1
+
+----------- Overall evaluation -----------
+I'm concerned that this talk lacks focus. The outline is very broad, covering many string-related topics (practical experience with using std::string, COW issues, SSO representations, lifetime/ownership, Encodings & text_view). Trying to cover all of this would risk either running out of time or lacking depth.
+
+I think there's material for a good C++Now session in there, but it doesn't seem to be pruned & shaped into a cohesive talk yet.
