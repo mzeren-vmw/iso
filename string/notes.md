@@ -1,5 +1,63 @@
 ## Notes
 
+### COW without COW?
+
+Could I hack libstdc++ to disable COW but keep everything else the same? Make locked always locked.
+
+Or use chap to count reference counts in string blocks?
+
+### string::resize sucks
+
+* ...
+
+### Builders
+
+* What subset of basic_string methods are "builder" methods. If you created
+  something that just had those, how frequently could it just "drop in" and
+  replace basic_string?
+
+
+### Uninitialized fill
+
+* Often we want to copy char's while transforming. reserve + push_back is more
+  expensive than malloc + transform.
+
+### Nullability
+
+* std::basic_string's data() member cannot return null but
+  basic_string_view::data() can.
+
+* zstring/czstring recommendations in the CppCoreGuidelines might be nice for
+  completeness.
+
+### Security
+
+* http://www.and.org/vstr/security
+* http://www.and.org/ustr/
+
+### Storage class
+
+* Here an interface takes a pointer as part of saying "only give me static
+  storage". It's a brittle and error prone mechanism:
+  https://reviewboard.eng.vmware.com/r/1110538/diff/2#0.7
+
+* Use a stack based string builder:
+  * change 4945037 edit on 2017/03/09 by agesen@wsi (text) 'Avoid some more
+    quadratic cost '
+  * https://p4web.eng.vmware.com/@md=c&cd=//@/4950297?ac=10
+  * Also that does 64bit "string" appends.
+
+### int and long long sized strings
+
+* https://p4web.eng.vmware.com/@md=c&cd=//@/4950297?ac=10
+  64bit "string append"
+
+* Petko's fast string comparisons against ints.
+
+
+### strlen
+* `string_view(const char *)` is "narrow" and "Throws: Nothing". Why? Becusa
+  strlen comes from C??
 
 **Capacity**
 * `size_t` - do we really need to have strings this big. Can we use vector or

@@ -229,20 +229,6 @@ TODO: code example, how reserve doesn't work as well as you'd like....
 
 Lesson: sharing is important.
 
-#### SSO and COW - size
-
-SSO strings are **big**, 24 or 32 bytes. In our "`Optional<string>`" SSO was too
-expensive, as most of our optional strings were unset. So, we specialized
-`Optional<string>` to hold a `string *` -- saving space for the unset case but
-adding an indirection / decreasing locality for the set case. That was
-unfortunate.
-
-On the other hand, a COW string was only one pointer, so with GCC we
-conditionally compiled `Optional<string>` to not add the indirection.
-
-Side note: A GCC COW string that's just `0` is not valid. We could implement
-`Optional<string>` as a single pointer sized value. More on this later!
-
 #### COW Bug
 
 There's a subtle, but unresolved bug in GCC's COW implementation. We live with
@@ -264,6 +250,20 @@ some thinking and measuring to do...
 
 Note that `fbstring` kept COW for large strings, though that was deprecated in
 2016. On the other hand our ship stopper fix was for lots of *small* strings!
+
+#### SSO and COW - size
+
+SSO strings are **big**, 24 or 32 bytes. In our "`Optional<string>`" SSO was too
+expensive, as most of our optional strings were unset. So, we specialized
+`Optional<string>` to hold a `string *` -- saving space for the unset case but
+adding an indirection / decreasing locality for the set case. That was
+unfortunate.
+
+On the other hand, a COW string was only one pointer, so with GCC we
+conditionally compiled `Optional<string>` to not add the indirection.
+
+Side note: A GCC COW string that's just `0` is not valid. We could implement
+`Optional<string>` as a single pointer sized value. More on this later!
 
 #### Intern strings
 
@@ -323,7 +323,7 @@ pointer to an "element" or a C-array of elements.
 ```c++
 struct string_data {
   Elem* data;
-};
+};  
 ```
 
 #### As a function
