@@ -6,6 +6,11 @@
 [//]: # (* Example using polymorphic lookup and "transparent" comparator?)
 [//]: # (* Example of how the extra indirection causes missed optimizations)
 [//]: # (* In "Extrapolating..." show alts of return by & and by value)
+[//]: # (https://cs.chromium.org/chromium/src/base/memory/ref_counted.h)
+[//]: # (https://cs.chromium.org/chromium/src/third_party/WebKit/Source/wtf/RefPtr.h)
+[//]: # (* Refcounts 0 and 1 are special. "non reference counted" types should return 2.)
+[//]: # ()
+
 
 # Retain by default
 

@@ -5,4 +5,4 @@
 * Dig up Andrei's reference counted pointer cppcon 2015? talk.
 * Dig up recent operator & related changes.
 * Contact info for Peter Dimov.
-* 
+* `as_retain_ptr` (cast `T*` to `retain_ptr<T>`).
