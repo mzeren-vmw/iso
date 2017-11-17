@@ -46,6 +46,12 @@ Geoffrey Romer:
 > naming could help solve this problem, but if so the name needs to somehow
 > suggest both the "lock" aspect and the "pointer" aspect.
 
+http://lists.isocpp.org/lib-ext/2017/11/5482.php
+
+Tony Van Eerd:
+> ... PS 'snapshot' doesn't convey sharing. Which is fine for the const T,
+> but not so fine when T is not const. (I know that's the lesser used version
+> of the API, but worth keeping in mind)
 
 ### Tony Table
 
