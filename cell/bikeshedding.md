@@ -6,6 +6,10 @@ http://wg21.link/P0561
 
 ## Usage
 
+Seeing usage is helpful when thinking about names, so I have copied the example
+from the paper. I added one example that relies on class type deduction, which I
+expect to be common in C++17 code.
+
 ```c++
 class Server {
  public:
@@ -16,7 +20,8 @@ class Server {
 
   void HandleRequest() {
     snapshot_ptr<const Config> config = config_.get_snapshot();
-    snapshot_ptr config = config_.get_snapshot(); // class type deduced.
+    // or, with class type deduction:
+    snapshot_ptr config = config_.get_snapshot();
 
     // Use `config` like a unique_ptr<const Config>
 
@@ -28,7 +33,9 @@ class Server {
 ```
 
 ## `snapshot_ptr`, Guard or Pointer?
-Is `snapshot_ptr` a smart pointer or a scoped RAII adapter? And what about thread affinity? sharing?
+
+Is `snapshot_ptr` a smart pointer or a scoped RAII adapter? And what about
+thread affinity? sharing?
 
 http://lists.isocpp.org/lib-ext/2017/11/5461.php:
 
@@ -68,7 +75,9 @@ Tony Van Eerd:
 http://wg21.link/thread.lock.scoped
 <br>http://wg21.link/P0052 (unique_resource)
 
-Squinting: If `snapshot_ptr` is *movable* it looks like a thread-affine cross between a `shared_ptr` and a `unique_ptr`. If `snapshot_ptr` is *not movable* it looks more like a "dereferenceable" `scoped_lock`.
+Squinting: If `snapshot_ptr` is *movable* it looks like a thread-affine cross
+between a `shared_ptr` and a `unique_ptr`. If `snapshot_ptr` is *not movable* it
+looks more like a "dereferenceable" `scoped_lock`.
 
 
 ## Name Wall
