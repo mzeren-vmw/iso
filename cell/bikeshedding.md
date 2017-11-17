@@ -27,8 +27,8 @@ class Server {
 };
 ```
 
-## Guard vs Ptr
-Is it a pointer or a scoped RAII adapter? And what about thread affinity?
+## `snapshot_ptr`, Guard or Pointer?
+Is `snapshot_ptr` a smart pointer or a scoped RAII adapter? And what about thread affinity? sharing?
 
 http://lists.isocpp.org/lib-ext/2017/11/5461.php:
 
