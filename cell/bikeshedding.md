@@ -53,7 +53,7 @@ Geoffrey Romer:
 > naming could help solve this problem, but if so the name needs to somehow
 > suggest both the "lock" aspect and the "pointer" aspect.
 
-http://lists.isocpp.org/lib-ext/2017/11/5482.php
+http://lists.isocpp.org/lib-ext/2017/11/5482.php:
 
 Tony Van Eerd:
 > ... PS 'snapshot' doesn't convey sharing. Which is fine for the const T,
@@ -62,23 +62,20 @@ Tony Van Eerd:
 
 ### Tony Table
 
-||atomic<br>_shared<br>_ptr|shared<br>_ptr|unique<br>_ptr|snapshot<br>_ptr|scoped<br>_lock|unique<br>_resource|cell|
-| --------------| ---:| ---:| ---:| ---:| ---:| ---:| ---:|
-| moveable      |   X |   O |   O |**O**|   X |   O |   X |
-| copyable      |   X |   O |   X |**X**|   X |   X |   X |
-| get() -> T*   |   O |   O |   O |**O**|   X |   X |   X |
-| get() -> T&   |   X |   X |   X |**X**|   X |   O |   X |
-| shared T      |   O |   O |   X |**O**|   O |   X |   O |
-| thread safe   |   O |   X |   X |**X**|   X |   X |   O |
-| thread affine |   X |   X |   X |**O**|   O |   X |   X |
+||atomic<br>_shared<br>_ptr|shared<br>_ptr|unique<br>_ptr|snapshot<br>_ptr|unique<br>_lock|lock<br>_guard|unique<br>_resource|cell|
+| --------------| ---:| ---:| ---:| ---:| ---:| ---:| ---:| ---:|
+| moveable      |   X |   O |   O |**O**|   O |   X |   O |   X |
+| copyable      |   X |   O |   X |**X**|   X |   X |   X |   X |
+| get() -> T*   |   O |   O |   O |**O**|   X |   X |   X |   X |
+| get() -> T&   |   X |   X |   X |**X**|   X |   X |   O |   X |
+| shared T      |   O |   O |   X |**O**|   O |   O |   X |   O |
+| thread safe   |   O |   X |   X |**X**|   X |   X |   X |   O |
+| thread affine |   X |   X |   X |**O**|   O |   O |   X |   X |
 
-http://wg21.link/thread.lock.scoped
+http://wg21.link/thread.req.lockable.basic#3
+<br>http://wg21.link/thread.lock.guard
+<br>http://wg21.link/thread.lock.unique
 <br>http://wg21.link/P0052 (unique_resource)
-
-Squinting: If `snapshot_ptr` is *movable* it looks like a thread-affine cross
-between a `shared_ptr` and a `unique_ptr`. If `snapshot_ptr` is *not movable* it
-looks more like a "dereferenceable" `scoped_lock`.
-
 
 ## Name Wall
 
