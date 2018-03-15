@@ -6,7 +6,7 @@ Audience: LEWG, LWG
 Status: D
 Group: WG21
 URL: http://wg21.link/D0966R1
-!Source: <a href="https://github.com/mzeren-vmw/iso/blob/master/reserve/D0996R1.bs">https://github.com/mzeren-vmw/iso/blob/master/reserve/D0996R1.bs</a>
+!Source: <a href="https://github.com/mzeren-vmw/iso/blob/master/reserve/D0966R1.bs">https://github.com/mzeren-vmw/iso/blob/master/reserve/D0966R1.bs</a>
 Editor: Mark Zeren, VMware, mzeren@vmware.com
 Editor: Andrew Luo, Self, andrewluotechnologies@outlook.com
 Date: 2018-02-08
