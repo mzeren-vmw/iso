@@ -1,12 +1,12 @@
 <pre class='metadata'>
 Title: <code>string::reserve</code> Should Not Shrink
-Shortname: D0966
+Shortname: P0966
 Revision: 1
 Audience: LEWG, LWG
-Status: D
+Status: P
 Group: WG21
-URL: http://wg21.link/D0966R1
-!Source: <a href="https://github.com/mzeren-vmw/iso/blob/master/reserve/D0966R1.bs">https://github.com/mzeren-vmw/iso/blob/master/reserve/D0966R1.bs</a>
+URL: http://wg21.link/P0966R1
+!Source: <a href="https://github.com/mzeren-vmw/iso/blob/master/reserve/p0966R1.bs">https://github.com/mzeren-vmw/iso/blob/master/reserve/p0966R1.bs</a>
 Editor: Mark Zeren, VMware, mzeren@vmware.com
 Editor: Andrew Luo, Self, andrewluotechnologies@outlook.com
 Date: 2018-02-08
@@ -158,7 +158,7 @@ Add a new section:
 <blockquote>
 <ins>
 <strong>
-D. � Deprecated basic_string capacity [depr.string.capactity].
+D. � Deprecated basic_string capacity [depr.string.capacity].
 </strong>
 
 The following member is declared in addition to those specified in
@@ -178,7 +178,7 @@ namespace std {
 <strong>void reserve();</strong> <ol>
 <li> <em>Effects:</em> After this call, <tt>capacity()</tt> has an unspecified
      value greater than or equal to <tt>size()</tt>. [<em>Note:</em> This is a
-     non-binding shrink request. — <em>end note</em>] </li>
+     non-binding shrink to fit request. — <em>end note</em>] </li>
 </ol></pre></ins>
 </blockquote>
 
