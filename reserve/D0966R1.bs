@@ -1,12 +1,12 @@
 <pre class='metadata'>
 Title: <code>string::reserve</code> Should Not Shrink
-Shortname: P0966
+Shortname: D0966
 Revision: 1
 Audience: LEWG, LWG
 Status: D
 Group: WG21
-URL: http://wg21.link/P0966
-!Source: <a href="https://github.com/mzeren-vmw/iso/blob/master/reserve/reserve.bs">https://github.com/mzeren-vmw/iso/blob/master/reserve/reserve.bs</a>
+URL: http://wg21.link/D0966R1
+!Source: <a href="https://github.com/mzeren-vmw/iso/blob/master/reserve/D0996R1.bs">https://github.com/mzeren-vmw/iso/blob/master/reserve/D0996R1.bs</a>
 Editor: Mark Zeren, VMware, mzeren@vmware.com
 Editor: Andrew Luo, Self, andrewluotechnologies@outlook.com
 Date: 2018-02-08
@@ -22,20 +22,23 @@ History
 Changes from R0
 ------
 
-* Feedback from LEWG Jacksonville 2019.
-<pre>
-    SF | F  | N | A | SA
-    13 | 10 | 0 | 0 | 0
-</pre>
+* Deprecated default argument of `reserve`, as suggested by LWG in
+  Jacksonville 2018.
 
-* Fixed stable URL.
-* Fixed typos.
+* LEWG Jacksonville 2018 accepted without edits:
+<table>
+  <tr><th>SF</th><th>F</th><th>N</th><th>A</th><th>SA</th></tr>
+  <tr><td>13</td><td>10</td><td>0</td><td>0</td><td>0</td></tr>
+</table>
 
+* Rebased on [[N4727]].
+
+* Fixed URLs and typos.
 
 Summary {#summary}
 =======
 
-`basic_string::renserve` *optionally* shrinks to fit
+`basic_string::reserve` *optionally* shrinks to fit
 [**string.capacity**]:
 
 <blockquote>
@@ -71,21 +74,112 @@ Optionally shrinking-to-fit is problematic because:
 Proposed Wording {#proposal}
 ========
 
-We propose resolving [[LWG2968]] by rewording `basic_string::reserve` to mirror
-`vector::reserve`. In [**string.capacity**] relative to [[N4713]]:
+We propose resolving [[LWG2968]] by:
+<ol>
+
+<li> Overloading `basic_string::reserve` in order to deprecate its default
+argument. </li>
+
+<li> Changing the allocation behavior of `basic_string::reserve` to mirror
+     `vector::reserve`.</li>
+
+</ol>
+Wording is relative to [[N4727]].
+
+Change 24.3.2.4 [**basic.string**] as depicted:
 
 <blockquote>
-<ol start="11">
 
-<li> Effects: After reserve(), capacity() is greater or equal to the argument of
-     reserve <ins> if reallocation happens; and equal to the previous value of
-     capacity() otherwise. Reallocation happens at this point if and only if the
-     current capacity is less than the argument of reserve()</ins>. <del> [Note:
-     Calling reserve() with a res_arg argument less than capacity() is in effect
-     a non-binding shrink request. A call with res_arg <= size() is in effect a
-     non-binding shrink-to-fit request. — end note] </del>
+<pre nohighlight>
+     // 24.3.2.4, capacity
+     size_type size() const noexcept;
+     size_type length() const noexcept;
+     size_type max_size() const noexcept;
+     void resize(size_type n, charT c);
+     void resize(size_type n);
+     size_type capacity() const noexcept;
+     <del>void reserve(size_type res_arg = 0);</del>
+     <ins>void reserve(size_type res_arg);</ins>
+     void shrink_to_fit();
+     void clear() noexcept;
+     [[nodiscard]] bool empty() const noexcept;
+</pre>
 
-</li></ol>
+</blockquote>
+
+Change 24.3.2.4 [**string.capacity**] as depicted:
+
+<blockquote><del>
+
+<pre nohighlight>
+void reserve(size_type res_arg=0);
+</pre>
+
+<ol start="10">
+
+<li> The member function <tt>reserve()</tt> is a directive that informs a
+     <tt>basic_string</tt> object of a planned change in size, so that it can
+     manage the storage allocation accordingly. </li>
+
+<li> <em>Effects:</em> After <tt>reserve()</tt>, <tt>capacity()</tt> is greater
+     or equal to the argument of <tt>reserve</tt>. [ <em>Note:</em> Calling
+     <tt>reserve()</tt> with a <tt>res_arg</tt> argument less than
+     <tt>capacity()</tt> is in effect a non-binding shrink request. A call with
+     res_arg <= size() is in effect a non-binding shrink-to-fit request. —
+     <em>end note</em>] </li>
+
+</ol>
+
+</del><ins>
+
+<pre nohighlight>
+void reserve(size_type res_arg);
+</pre>
+</ins>
+<ol start="10">
+
+<li> <ins><em>Effects:</em> A directive that informs a <tt>basic_string</tt> of
+     a planned change in size, so that it can manage the storage allocation
+     accordingly. After <tt>reserve()</tt>, <tt>capacity()</tt> is greater or
+     equal to the argument of <tt>reserve</tt> if reallocation happens; and
+     equal to the previous value of <tt>capacity()</tt> otherwise. Reallocation
+     happens at this point if and only if the current capacity is less than the
+     argument of <tt>reserve()</tt>.</ins></li>
+
+<li> <del>12</del> <em>Throws:</em> <tt>length_error</tt> if <tt>res_arg</tt> >
+     <tt>max_size()</tt>.<sup>231</sup> </li>
+
+</ol>
+
+</blockquote>
+
+Add a new section:
+
+<blockquote>
+<ins>
+<strong>
+D. � Deprecated basic_string capacity [depr.string.capactity].
+</strong>
+
+The following member is declared in addition to those specified in
+[**string.capacity**]
+
+<pre nohighlight>
+
+namespace std {
+  template&lt;class charT, class traits = char_traits&lt;charT&gt;,
+           class Allocator = allocator&lt;charT&gt;&gt;
+  class basic_string {
+  public:
+    void reserve();
+  };
+}
+
+<strong>void reserve();</strong> <ol>
+<li> <em>Effects:</em> After this call, <tt>capacity()</tt> has an unspecified
+     value greater than or equal to <tt>size()</tt>. [<em>Note:</em> This is a
+     non-binding shrink request. — <em>end note</em>] </li>
+</ol></pre></ins>
 </blockquote>
 
 
