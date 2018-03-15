@@ -1,11 +1,11 @@
 <pre class='metadata'>
 Title: <code>string::reserve</code> Should Not Shrink
-Shortname: D0XXX
+Shortname: P0966
 Revision: 1
 Audience: LEWG, LWG
 Status: D
 Group: WG21
-URL: http://wg21.link/D0XXX
+URL: http://wg21.link/P0966
 !Source: <a href="https://github.com/mzeren-vmw/iso/blob/master/reserve/reserve.bs">https://github.com/mzeren-vmw/iso/blob/master/reserve/reserve.bs</a>
 Editor: Mark Zeren, VMware, mzeren@vmware.com
 Editor: Andrew Luo, Self, andrewluotechnologies@outlook.com
@@ -16,10 +16,26 @@ Abstract: <code>basic_string::reserve</code> should not shrink-to-fit.
 
 </pre>
 
+History
+======
+
+Changes from R0
+------
+
+* Feedback from LEWG Jacksonville 2019.
+<pre>
+    SF | F  | N | A | SA
+    13 | 10 | 0 | 0 | 0
+</pre>
+
+* Fixed stable URL.
+* Fixed typos.
+
+
 Summary {#summary}
 =======
 
-`basic_string::resserve` *optionally* shrinks to fit
+`basic_string::renserve` *optionally* shrinks to fit
 [**string.capacity**]:
 
 <blockquote>
@@ -32,7 +48,6 @@ Summary {#summary}
 
 </li></ol>
 </blockquote>
-
 
 Optionally shrinking-to-fit is problematic because:
 
