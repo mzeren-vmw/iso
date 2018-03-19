@@ -1,91 +1,94 @@
 <pre class='metadata'>
-Title: <code>basic_string::uninitialized_resize</code>
-Shortname: PXXX
-Revision: 1
+Title: <code>basic_string::resize_uninitialized</code>
+Shortname: D1010
+Revision: 0
 Audience: LEWG, LWG
 Status: D
 Group: WG21
-URL: http://wg21.link/PXXXR0
-!Source: <a href="https://github.com/mzeren-vmw/iso/blob/master/resize/resize.bs">https://github.com/mzeren-vmw/iso/blob/master/resize/resize.bs</a>
+URL: http://wg21.link/D1010R0
+!Source: <a href="https://github.com/mzeren-vmw/iso/blob/master/resize/D1010R0.bs">https://github.com/mzeren-vmw/iso/blob/master/resize/D1010R0.bs</a>
 Editor: Mark Zeren, VMware, mzeren@vmware.com
 Editor: Chris Kennelly, Google, ckennelly@google.com
-Date: 2018-03-17
+Date: 2018-03-19
 Markup Shorthands: markdown yes
 
-Abstract: Add <code>basic_string::uninitialized_resize</code>
+Abstract: Add <code>basic_string::resize_uninitialized</code>.
 
 </pre>
+
 
 Summary {#summary}
 =======
 
-Add <code>basic_string::uninitialized_resize</code> which
+Add <code>basic_string::resize_uninitialized</code> which
 **default-initializes** any added elements, unlike
 <code>basic_string::resize</code>, which value initializes any added elements.
+
 
 Motivation {#motivation}
 ==========
 
-When appending to a string, we may know the length of the data that we want to
-append before the actual data is available. For example, we may be stamping a
-pattern or reading from a network device. Ideally, we would ask
-<code>basic_string</code> to pre-allocate space into which we can write.
-However, <code>basic_string</code> does not give us an API to do this.
+When appending to a string, we may know the total length of the data that we
+intend to append before the actual append. For example, we may be stamping N
+copies of a pattern or appending N <code>basic_string_view</code>s. Ideally, we
+would ask <code>basic_string</code> to pre-allocate space into which we can
+write. However, <code>basic_string</code> does not give us an zero-overhead API
+to do this.
 
-Some of the current sub-optimal choices include:
+Some of the current choices include:
 
 <ol>
 
-<li> Call <code>append</code> multiple times incurring the overhead of
-     conditional bookkeeping logic:</li>
+<li> Call <strong><code>reserve</code></strong> and then <code>append</code> in
+     a loop. However, this incurs bookkeeping overhead in each append.</li>
 
 <xmp>
-constexpr char kPattern[] = "all work and no play ";
-constexpr size_t kSize = sizeof(kPattern) - 1;
-
-void Append(string& out, int count)
+void AppendPattern(string& out, string_view pattern, unsigned count)
 {
-  out.reserve(out.size() + kSize * count);
-  for (int i = 0; i < count; ++i) {
-    out.append(kPattern);                  // Bookkeeping.
+  out.reserve(out.size() + pattern.size() * count); // GOOD: No unnecessary writes.
+  //  ^^^^^^^
+  for (unsigned i = 0; i < count; ++i) {
+    out.append(pattern);                            // BAD: Bookkeeping in append.
   }
 }
 </xmp>
 
-<li> To avoid bookkeeping, call <code>resize()</code>, and write directly into
-     the string. However, <code>resize</code> will <em>value initialize</em>
-     <code>charT</code> writing zeros for the new elements: </li>
+<li> Call <strong><code>resize</code></strong> and write directly into the
+     string. However, this value initializes elements, typically writing zeros:
+     </li>
 
-<Xmp>
-void Append(string& out, int count)
+<xmp>
+void AppendPattern(string& out, string_view pattern, unsigned count)
 {
   string::size_type start = out.size();
-  out.resize(start + kSize * count);       // Write zeros.
-  for (auto cur = out.begin() + start; cur < out.end(); cur += kSize) {
-      memcpy(&*cur, kPattern, kSize);
+  out.resize(start + pattern.size() * count);       // BAD: Write a lot of zeros.
+  //  ^^^^^^
+  for (auto cur = out.begin() + start;
+      cur < out.end(); cur += pattern.size()) {
+      memcpy(&*cur, pattern.data(), pattern.size());       // GOOD: No bookkeeping.
   }
 }
 </xmp>
 
 </ol>
 
-The above overheads, while not huge, are measurable and can be significant in
-aggregate.
+The above overheads are often small, but they can be significant in performance
+critical call paths.
 
 Proposed Resolution {#resolution}
 ===================
 
-We propose adding <code>uninitialized_resize</code> which
+We propose adding <code>resize_uninitialized</code> which
 <em>default-initializes</em> new elements. With this API we can write:
 
 <xmp>
-void Append(string& out, int count)
+void AppendPattern(string& out, string_view pattern, unsigned count)
 {
   string::size_type start = out.size();
-  out.uninitialized_resize(start + kSize * count);  // No zeros.
+  out.resize_uninitialized(start + pattern.size() * count); // GOOD: No unnecessary writes.
   //  ^^^^^^^^^^^^^^^^^^^^
-  for (auto cur = out.begin() + start; cur < out.end(); cur += kSize) {
-      memcpy(&*cur, kPattern, kSize);
+  for (auto cur = out.begin() + start; cur < out.end(); cur += pattern.size()) {
+      memcpy(&*cur, pattern.data(), pattern.size());        // GOOD: No bookkeeping.
   }
 }
 </xmp>
@@ -93,27 +96,43 @@ void Append(string& out, int count)
 Implementation Experience {#experience}
 ========================
 
-Google has patched their internal <code>basic_string</code> implementation to
-implement a similar API and has measured performance improvements that justify
-maintaining this extension.
+Google has hacked their internal <code>basic_string</code> implementation to
+implement this API and has measured performance improvements (that are not
+public) that justify maintaining this extension.
+
+Google's Abseil open source library provides hooks
+for other users that want to independently apply the same hack. See:
+<a href="https://github.com/abseil/abseil-cpp/blob/c2e7548/absl/strings/internal/resize_uninitialized.h">
+https://github.com/abseil/abseil-cpp/blob/c2e7548/absl/strings/internal/resize_uninitialized.h</a>
+
+Google's Protocol Buffers open source library takes advantage of Abseil's hooks
+to improve performance. See: <a
+href="https://github.com/google/protobuf/blob/e428862/src/google/protobuf/stubs/stl_util.h#L61">
+https://github.com/google/protobuf/blob/e428862/src/google/protobuf/stubs/stl_util.h#L61</a>
+
+VMware, unaware of Google's work, has internal string formatters that avoid
+<code>std::string</code> due, in part, to <code>reserve</code>'s zero-writing
+behavior.
 
 Alternatives considered {#alt}
 =======================
 
-<ul>
-<li>
-**Q:** Why not <code>vector::uninitialized_resize</code>?
+<ul><li>
 
-**A:** Strings often have internal structure in the sequence of elements,
-  whereas vectors do not.
-</li>
-<li>
-**Q:** Why not <code>basic_string::&lt;insert_method_name_here&gt;</code> ?
+**Q:** Why not <code>vector::resize_uninitialized</code>?
 
-**A:** Imlementation experience has found that this one API addition is
-  sufficient to cover known use cases.
-</li>
-</ul>
+**A:** <br/> a) Strings often have internal structure in the sequence of elements,
+  whereas vectors do not. <br/> b) Strings most often contain literal types like char
+  where default initialization does nothing, while vectors are often used for
+  user defined types where default initialization does additional work. </li>
+
+**Q:** Why not <code>basic_string::insert_uninitialized(...)</code>, etc.?
+
+**A:** Implementation experience shows that <code>resize</code> covers the
+  important use cases.
+
+</li></ul>
+
 Wording {#wording}
 =======
 
@@ -128,7 +147,7 @@ size_type length() const noexcept;
 size_type max_size() const noexcept;
 void resize(size_type n, charT c);
 void resize(size_type n);
-<ins>void uninitialized_resize(size_type n);</ins>
+<ins>void resize_uninitialized(size_type n);</ins>
 size_type capacity() const noexcept;
 void reserve(size_type res_arg = 0);
 void shrink_to_fit();
@@ -137,12 +156,12 @@ void clear() noexcept;
 </pre>
 </blockquote>
 
-Change basic_string capacity [**string.capacity**] as depicted:
+Change [**string.capacity**] as depicted:
 
 <blockquote>
 <ins>
 <pre nohighlight>
-void uninitialized_resize(size_type n);
+void resize_uninitialized(size_type n);
 </pre>
 <ol start="9">
 
@@ -151,9 +170,7 @@ void uninitialized_resize(size_type n);
 <li> <em>Effects:</em> Alters the length of the string designated by
      <tt>*this</tt> as follows:
 
-— If <tt>n &lt;= size()</tt>, the function replaces the string designated
-  by <tt>*this</tt> with a string of length <tt>n</tt> whose elements are a copy of
-  the initial elements of the original string designated by <tt>*this</tt>.
+— If <tt>n &lt;= size()</tt>, <tt>resize(n)</tt>.
 
 — If <tt>n &gt; size()</tt>, the function replaces the string designated
   by <tt>*this</tt> with a string of length <tt>n</tt> whose first <tt>size()</tt>
