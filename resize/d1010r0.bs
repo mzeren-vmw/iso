@@ -6,7 +6,7 @@ Audience: LEWG, LWG
 Status: D
 Group: WG21
 URL: http://wg21.link/D1010R0
-!Source: <a href="https://github.com/mzeren-vmw/iso/blob/master/resize/p1010r0.bs">https://github.com/mzeren-vmw/iso/blob/master/resize/d1010r0.bs</a>
+!Source: <a href="https://github.com/mzeren-vmw/iso/blob/master/resize/d1010r0.bs">https://github.com/mzeren-vmw/iso/blob/master/resize/d1010r0.bs</a>
 Editor: Mark Zeren, VMware, mzeren@vmware.com
 Editor: Chris Kennelly, Google, ckennelly@google.com
 Date: 2018-03-19
