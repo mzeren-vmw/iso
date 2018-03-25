@@ -14,7 +14,7 @@ Markup Shorthands: markdown yes
 
 Abstract: Extend <code>basic_string</code> to allow assignment of
           default-initialized elements. This new facility standardizes field
-          proven, custom extentions that reduce runtime overhead.
+          proven, custom, extentions that reduce runtime overhead.
 
 </pre>
 
@@ -194,19 +194,54 @@ void AppendPattern(string& out, string_view pattern, unsigned count)
 Implementation Experience {#experience}
 ========================
 
-Google has hacked their internal <code>basic_string</code> implementation to
-implement this API and has measured performance improvements (that are not
-public) that justify maintaining this extension.
+Google {#google}
+------
 
-Google's Abseil open source library provides hooks
-for other users that want to independently apply the same hack. See:
-<a href="https://github.com/abseil/abseil-cpp/blob/c2e7548/absl/strings/internal/resize_uninitialized.h">
-https://github.com/abseil/abseil-cpp/blob/c2e7548/absl/strings/internal/resize_uninitialized.h</a>
+Google has hacked their internal <code>basic_string</code> implementation to
+provide this API and has measured performance improvements (that are not public)
+that justify maintaining this extension.
+
+Google's Abseil open source library provides hooks for other users that want to
+independently apply the same hack. See:
+<a href="https://github.com/abseil/abseil-cpp/blob/master/absl/strings/internal/resize_uninitialized.h">
+https://github.com/abseil/abseil-cpp/blob/master/absl/strings/internal/resize_uninitialized.h</a>
 
 Google's Protocol Buffers open source library takes advantage of Abseil's hooks
-to improve performance. See: <a
-href="https://github.com/google/protobuf/blob/e428862/src/google/protobuf/stubs/stl_util.h#L61">
-https://github.com/google/protobuf/blob/e428862/src/google/protobuf/stubs/stl_util.h#L61</a>
+to improve performance. See:
+<a href="https://github.com/google/protobuf/blob/master/src/google/protobuf/stubs/stl_util.h#L61">
+https://github.com/google/protobuf/blob/master/src/google/protobuf/stubs/stl_util.h#L61</a>
+
+Boost {#boost}
+-----
+
+* <a href="https://github.com/boostorg/container/commit/14f092ab00def8e692b81d57d0466a617a6f6130">
+  Default initialization for vector-like containers</a> Ion Gaztañaga.
+
+* <a href="https://github.com/boostorg/container/blob/develop/include/boost/container/vector.hpp">
+  boost/container/vector.hpp</a>
+
+<xmp>
+   //! <b>Effects</b>: Constructs a vector that will use a copy of allocator a
+   //!   and inserts n default initialized values.
+   //!
+   //! <b>Throws</b>: If allocator_type's allocation
+   //!   throws or T's default initialization throws.
+   //!
+   //! <b>Complexity</b>: Linear to n.
+   //!
+   //! <b>Note</b>: Non-standard extension
+   vector(size_type n, default_init_t);
+   vector(size_type n, default_init_t, const allocator_type &a)
+   ...
+   void resize(size_type new_size, default_init_t);
+   ...
+</xmp>
+
+Also supported in Boost Container small_vector, static_vector, deque, stable_vector, string.
+
+
+VMware {#vmware}
+------
 
 VMware, unaware of Google's work, has internal string formatters that avoid
 <code>std::string</code> due, in part, to <code>reserve</code>'s zero-writing
@@ -292,4 +327,10 @@ References {#references}
 
 * std-proposals discussion of basic_string::resize_uninitialized.
 ** https://groups.google.com/a/isocpp.org/forum/#!topic/std-proposals/XIO4KbBTxl0
+
+* XXX Glen Fernandes mentioned that he is working on a proposal to add default
+  initialized make_unique/make_shared, etc. So not related to containers and
+  allocators, but probably worth a reference when it becomes available.
+
+* XXX http://eel.is/c++draft/dcl.init#12
 
