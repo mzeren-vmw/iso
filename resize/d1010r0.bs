@@ -12,18 +12,60 @@ Editor: Chris Kennelly, Google, ckennelly@google.com
 Date: 2018-03-19
 Markup Shorthands: markdown yes
 
-Abstract: Add <code>basic_string::resize_uninitialized</code>.
+Abstract: Extend <code>basic_string</code> to allow assignment of
+          default-initialized elements. This new facility standardizes field
+          proven, custom extentions that reduce runtime overhead.
 
 </pre>
 
+Note: This is an early draft which disucsses two different approaches. We plan
+      to select only one for the final P paper.
 
 Summary {#summary}
 =======
 
-Add <code>basic_string::resize_uninitialized</code> which
-**default-initializes** any added elements, unlike
-<code>basic_string::resize</code>, which value initializes any added elements.
+In <code>allocator_traits</code> add:
 
+* `uninitialized_default_construct(Alloc& a, T* p)` - Default constructs `T`.
+  This is optional and only participates in overload resolution when `T` 
+  has a trivial destructor.
+
+In `basic_string`, IFF `allocator_traits::uninitialized_default_construct<Alloc,
+charT*>` is available, add:
+
+-- PLAN A --
+
+* <code>resize_uninitialized(size_type)</code> - Like <code>resize()</code> but
+  default initializes any new elements added to the string. While the string
+  contains indeterminate values it is said to be in an "uninitialized" state.
+  Only a limited set of operations have defined behavior in this state: the
+  destructor, <code>size()</code>, <code>capacity()</code>, <code>data()</code>,
+  <code>assign()</code>, etc. .... The string cannot be copied, moved, or
+  swapped in the uninitialized state. The uninitialized state is cleared when
+  all indeterminate values have been assigned or by certain methods such as
+  <code>resize</code>, <code>assign</code>, <code>clear()</code>, etc. ....
+
+-- PLAN B --
+
+* <code>uninitialized_data()</code> - Returns a pointer to elements in
+  (<code>size()</code>, <code>capacity()</code>] All but the first of these
+  elements may have indeterminate values, but may be assigned. Writing to the
+  element at <code>size()</code> puts the string into an "unterminated" state.
+  While in the unterminated state <code>c_str()</code> has undefined behavior.
+  Additionally the "one past the end is charT()" guarantee is removed. The
+  string cannot be copied, moved, or swapped in the unterminated state. Several
+  methods can clear the "unterminated" state: <code>append</code>,
+  <code>resize</code>, <code>assign()</code>, etc. ....
+
+* <code>append_from_capacity(size_type n)</code> - Appends <code>n</code>
+  elements from capacity. The application must have assigned these elements
+  otherwise the behavior is undefined. Note that this allows the application to
+  "snap" to a length based on the number of elements assigned.
+
+Note: Both PLAN A and PLAN B add unfortunate "states" to
+      <code>basic_string</code>. However, I'm pretty sure that PLAN B does not
+      add a special state to <code>vector</code>. If we want PLAN B for
+      <code>vector</code>, do we also want it for <code>basic_string</code>?
 
 Motivation {#motivation}
 ==========
@@ -61,11 +103,11 @@ void AppendPattern(string& out, string_view pattern, unsigned count)
 void AppendPattern(string& out, string_view pattern, unsigned count)
 {
   string::size_type start = out.size();
-  out.resize(start + pattern.size() * count);       // BAD: Write a lot of zeros.
+  out.resize(start + pattern.size() * count);        // BAD: Write a lot of zeros.
   //  ^^^^^^
   for (auto cur = out.begin() + start;
       cur < out.end(); cur += pattern.size()) {
-      memcpy(&*cur, pattern.data(), pattern.size());       // GOOD: No bookkeeping.
+      memcpy(&*cur, pattern.data(), pattern.size()); // GOOD: No bookkeeping.
   }
 }
 </xmp>
@@ -87,11 +129,67 @@ void AppendPattern(string& out, string_view pattern, unsigned count)
   string::size_type start = out.size();
   out.resize_uninitialized(start + pattern.size() * count); // GOOD: No unnecessary writes.
   //  ^^^^^^^^^^^^^^^^^^^^
+  // out is in the uninitizliaed state.
   for (auto cur = out.begin() + start; cur < out.end(); cur += pattern.size()) {
       memcpy(&*cur, pattern.data(), pattern.size());        // GOOD: No bookkeeping.
   }
+  // Uninitizliaed state cleared.
 }
 </xmp>
+
+Here's an example for managing the uninitialized state in the face of failure:
+
+<xmp>
+void WritePattern(char *p, string_view pattern, unsigned count);  // May throw.
+
+void AppendPattern(string& out, string_view pattern, unsigned count)
+{
+  string::size_type start = out.size();
+  out.resize_uninitialized(start + pattern.size() * count);
+  // Guarentee that we clear uninitialized state.
+  experimental::scope_fail fail([] { out.resize(start); });
+  WritePattern(out.data() + start(), pattern, count);
+}
+</xmp>
+
+-- PLAN B --
+
+<xmp>
+void AppendPattern(string& out, string_view pattern, unsigned count)
+{
+  string::size_type start = out.size();
+  size_type len = pattern.size() * count;
+  out.reserve(start + len);
+  char *cur = out. uninitialized_data();
+  char * const end = cur + len;
+  for (; cur < end; cur += pattern.size()) {
+      memcpy(&*cur, pattern.data(), pattern.size());
+  }
+  out.append_from_capacity(len);
+}
+</xmp>
+
+Here's an example for managing the uninitialized state in the face of failure:
+
+<xmp>
+void WritePattern(char *p, string_view pattern, unsigned count);  // May throw.
+
+void AppendPattern(string& out, string_view pattern, unsigned count)
+{
+  string::size_type start = out.size();
+  size_type len = pattern.size() * count;
+  out.reserve(start + len);
+  char *cur = out.uninitialized_data();
+  char * const end = cur + len;
+  experimental::scope_fail fail([] {       // Guarentee that we clear
+      *out.uninitialized_data() = char();  // uninitialized state.
+  });
+  WritePattern(out.data() + start(), pattern, count);
+}
+</xmp>
+
+(Do we want to simplify the <code>scope_fail</code> by saying that
+<code>resize(size())</code> always re-writes the terminating null? No?)
 
 Implementation Experience {#experience}
 ========================
@@ -136,6 +234,8 @@ Alternatives considered {#alt}
 Wording {#wording}
 =======
 
+Note: OUTDATED
+
 Relative to [[N4727]]:
 
 Change 24.3.2 [**basic.string**] as depicted:
@@ -170,7 +270,7 @@ void resize_uninitialized(size_type n);
 <li> <em>Effects:</em> Alters the length of the string designated by
      <tt>*this</tt> as follows:
 
-— If <tt>n &lt;= size()</tt>, <tt>resize(n)</tt>.
+— If <tt>n &lt;= size()</tt>, Calls <tt>resize(n)</tt>.
 
 — If <tt>n &gt; size()</tt>, the function replaces the string designated
   by <tt>*this</tt> with a string of length <tt>n</tt> whose first <tt>size()</tt>
@@ -180,3 +280,16 @@ void resize_uninitialized(size_type n);
 </ol>
 </ins>
 </blockquote>
+
+Acknowledgements {#acknowledgements}
+================
+
+* <strong>Agustín Bergé</strong> provided guidence on object lifetime and
+  allocator interactions.
+
+References {#references}
+==========
+
+* std-proposals discussion of basic_string::resize_uninitialized.
+** https://groups.google.com/a/isocpp.org/forum/#!topic/std-proposals/XIO4KbBTxl0
+
