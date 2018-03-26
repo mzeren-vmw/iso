@@ -12,14 +12,15 @@ Editor: Chris Kennelly, Google, ckennelly@google.com
 Date: 2018-03-19
 Markup Shorthands: markdown yes
 
-Abstract: Extend <code>basic_string</code> to allow assignment of
-          default-initialized elements. This new facility standardizes field
-          proven, custom, extentions that reduce runtime overhead.
+Abstract: Extend <code>allocator_traits</code> and <code>basic_string</code> to
+          allow assignment of default-initialized elements. This new facility
+          standardizes field proven, non-standard, extentions that reduce
+          runtime overhead.
 
 </pre>
 
 Note: This is an early draft which disucsses two different approaches. We plan
-      to select only one for the final P paper.
+      to select only one for the final P paper. XXX
 
 Summary {#summary}
 =======
@@ -120,6 +121,8 @@ critical call paths.
 Proposed Resolution {#resolution}
 ===================
 
+-- PLAN A --
+
 We propose adding <code>resize_uninitialized</code> which
 <em>default-initializes</em> new elements. With this API we can write:
 
@@ -160,8 +163,8 @@ void AppendPattern(string& out, string_view pattern, unsigned count)
   string::size_type start = out.size();
   size_type len = pattern.size() * count;
   out.reserve(start + len);
-  char *cur = out. uninitialized_data();
-  char * const end = cur + len;
+  char* cur = out.uninitialized_data();
+  char* const end = cur + len;
   for (; cur < end; cur += pattern.size()) {
       memcpy(&*cur, pattern.data(), pattern.size());
   }
@@ -176,15 +179,12 @@ void WritePattern(char *p, string_view pattern, unsigned count);  // May throw.
 
 void AppendPattern(string& out, string_view pattern, unsigned count)
 {
-  string::size_type start = out.size();
   size_type len = pattern.size() * count;
-  out.reserve(start + len);
-  char *cur = out.uninitialized_data();
-  char * const end = cur + len;
+  out.reserve(out.size() + len);
   experimental::scope_fail fail([] {       // Guarentee that we clear
       *out.uninitialized_data() = char();  // unterminated state.
   });
-  WritePattern(out.data() + start(), pattern, count);
+  WritePattern(out.uninitialized_data, pattern, count);
   out.append_from_capacity(len);
 }
 </xmp>
@@ -241,9 +241,10 @@ Also supported in Boost Container small_vector, static_vector, deque, stable_vec
 VMware {#vmware}
 ------
 
-VMware, unaware of Google's work, has internal string formatters that avoid
-<code>std::string</code> due, in part, to <code>reserve</code>'s zero-writing
-behavior.
+VMware has string formatters that avoid <code>std::string</code> due, in part,
+to <code>reserve</code>'s zero-writing behavior. This work was done without
+knowledge of Google's <code>resize_uninitialized</code> extension.
+
 
 Alternatives considered {#alt}
 =======================
@@ -323,12 +324,14 @@ Acknowledgements {#acknowledgements}
 References {#references}
 ==========
 
-* std-proposals discussion of basic_string::resize_uninitialized.
-** https://groups.google.com/a/isocpp.org/forum/#!topic/std-proposals/XIO4KbBTxl0
+* XXX std-proposals discussion of basic_string::resize_uninitialized.
+  https://groups.google.com/a/isocpp.org/forum/#!topic/std-proposals/XIO4KbBTxl0
 
 * XXX Glen Fernandes mentioned that he is working on a proposal to add default
   initialized make_unique/make_shared, etc. So not related to containers and
   allocators, but probably worth a reference when it becomes available.
 
+* XXX Protocol Buffers
 * XXX http://eel.is/c++draft/dcl.init#12
-
+* XXX Abseil
+* XXX Boost Containers
