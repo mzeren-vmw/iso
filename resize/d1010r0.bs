@@ -182,14 +182,12 @@ void AppendPattern(string& out, string_view pattern, unsigned count)
   char *cur = out.uninitialized_data();
   char * const end = cur + len;
   experimental::scope_fail fail([] {       // Guarentee that we clear
-      *out.uninitialized_data() = char();  // uninitialized state.
+      *out.uninitialized_data() = char();  // unterminated state.
   });
   WritePattern(out.data() + start(), pattern, count);
+  out.append_from_capacity(len);
 }
 </xmp>
-
-(Do we want to simplify the <code>scope_fail</code> by saying that
-<code>resize(size())</code> always re-writes the terminating null? No?)
 
 Implementation Experience {#experience}
 ========================
