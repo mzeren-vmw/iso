@@ -13,23 +13,36 @@ Date: 2018-03-19
 Markup Shorthands: markdown yes
 
 Abstract: Extend <code>allocator_traits</code> and <code>basic_string</code> to
-          allow assignment of default-initialized elements. This new facility
-          standardizes field proven, non-standard, extentions that reduce
-          runtime overhead.
+          allow allocation of, and assignment to, default-initialized elements.
+          This new facility standardizes field proven non-standard extentions
+          that reduce runtime overhead.
 
 </pre>
 
 Note: This is an early draft which disucsses two different approaches. We plan
-      to select only one for the final P paper. XXX
+      to select only one for the final P paper.
 
 Summary {#summary}
 =======
 
 In <code>allocator_traits</code> add:
 
-* `uninitialized_default_construct(Alloc& a, T* p)` - Default constructs `T`.
-  This is optional and only participates in overload resolution when `T` 
-  has a trivial destructor.
+<ul>
+
+<li> `uninitialized_default_construct(Alloc& a, T* p)` - Default constructs `T`.
+     This is optional and only participates in overload resolution when `T` has
+     a trivial destructor.
+
+     This calls <code>a.uninitialized_default_construct(p)</code> if that call
+     is well formed otherwise invokes <code>::new (static_cast&lt;void*&gt;(p))
+     T</code> </li>
+
+</ul>
+
+Note: We assume that dispatching to <code>a.destroy(p)</code> is sufficient and
+that it is well defined to call <code>p-&gt;~T()</code> on an indeterminate
+value when <code>T</code> has a trivial destructor. If not, <code>destroy</code>
+needs new wording.
 
 In `basic_string`, IFF `allocator_traits::uninitialized_default_construct<Alloc,
 charT*>` is available, add:
@@ -48,20 +61,32 @@ charT*>` is available, add:
 
 -- PLAN B --
 
-* <code>uninitialized_data()</code> - Returns a pointer to elements in
-  (<code>size()</code>, <code>capacity()</code>] All but the first of these
-  elements may have indeterminate values, but may be assigned. Writing to the
-  element at <code>size()</code> puts the string into an "unterminated" state.
-  While in the unterminated state <code>c_str()</code> has undefined behavior.
-  Additionally the "one past the end is charT()" guarantee is removed. The
-  string cannot be copied, moved, or swapped in the unterminated state. Several
-  methods can clear the "unterminated" state: <code>append</code>,
-  <code>resize</code>, <code>assign()</code>, etc. ....
+<ul>
 
-* <code>append_from_capacity(size_type n)</code> - Appends <code>n</code>
-  elements from capacity. The application must have assigned these elements
-  otherwise the behavior is undefined. Note that this allows the application to
-  "snap" to a length based on the number of elements assigned.
+<li> <code>uninitialized_data()</code> - Returns a pointer to elements in
+     (<code>size()</code>, <code>capacity()</code>] All but the first of these
+     elements may have indeterminate values, but may be assigned.
+
+     Writing a value other than <code>charT()</code> to the element at
+     <code>size()</code> puts the string into an "unterminated" state. While in
+     the unterminated state <code>c_str()</code> has undefined behavior.
+     Additionally the "one past the end is charT()" guarantee is removed. The
+     string cannot be copied, moved, or swapped in the unterminated state.
+     Several methods can clear the "unterminated" state: <code>append</code>,
+     <code>resize</code>, <code>assign()</code>, etc. .... The </li>
+
+     Note: This effectively requires <code>basic_string</code> to always default
+     initialize elements in spare capactity because, if
+     <code>uninitialized_data()</code> has ever been called,
+     <code>destroy</code> must also be called. Presumably there's some compile
+     time cost for this logic. Is this acceptable?
+
+<li> <code>append_from_capacity(size_type n)</code> - Appends <code>n</code>
+     elements from capacity. The application must have assigned these elements
+     otherwise the behavior is undefined. Note that this allows the application
+     to "snap" to a length based on the number of elements assigned.</li>
+
+</ul>
 
 Note: Both PLAN A and PLAN B add unfortunate "states" to
       <code>basic_string</code>. However, I'm pretty sure that PLAN B does not
