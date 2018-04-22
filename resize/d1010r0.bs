@@ -1,5 +1,5 @@
 <pre class='metadata'>
-Title: <code>basic_string::resize_uninitialized</code>
+Title: Container support for implicit lifetime types
 Shortname: D1010
 Revision: 0
 Audience: LEWG, LWG
@@ -12,217 +12,215 @@ Editor: Chris Kennelly, Google, ckennelly@google.com
 Date: 2018-03-19
 Markup Shorthands: markdown yes
 
-Abstract: Extend <code>allocator_traits</code> and <code>basic_string</code> to
-          allow allocation of, and assignment to, default-initialized elements.
-          This new facility standardizes field proven non-standard extentions
-          that reduce runtime overhead.
+Abstract: Extend <code>allocator_traits</code> and <code>vector</code> to allow
+          efficient addition of elements of <em>implicit lifetime</em> type.
 
 </pre>
-
-Note: This is an early draft which disucsses two different approaches. We plan
-      to select only one for the final P paper.
 
 Summary {#summary}
 =======
 
-In <code>allocator_traits</code> add:
+[P0593R2] notes that "there is a family of types for which programmers assume they
+do not need to explicitly create objects". These <em>implicit lifetime</em>
+types are: <ul>
+
+<li> Scalar types </li>
+
+<li> Array types (with any element type) </li>
+
+<li> Class types with a trivial destructor and a trivial constructor (of any
+     kind) </li>
+
+</ul
+
+When working with contiguous containers of <em>implicit lifetime</em> types it
+may be more efficient to initialize objects without explicit calls to
+constructors. For example, the application may be reading elements from a file
+or the network, or it may be stamping out a pattern of elements.
+
+Allocator aware containers like `vector` must inform the allocator of
+construction and destruction of objects, even when those operations are trivial.
+This is accomplished with the following additions:
+
+In [**allocator.requirements**] (Table 31) add:
 
 <ul>
 
-<li> `uninitialized_default_construct(Alloc& a, T* p)` - Default constructs `T`.
-     This is optional and only participates in overload resolution when `T` has
-     a trivial destructor.
-
-     This calls <code>a.uninitialized_default_construct(p)</code> if that call
-     is well formed otherwise invokes <code>::new (static_cast&lt;void*&gt;(p))
-     T</code> </li>
+<li> `a.implicit_construct(c)` which informs the allocator of an implicit
+     lifetime object that has been initialized by the application. This member
+     function, if provided, does not participate in overload resolution unless
+     <code>C</code> is an <em>implicit lifetime</em> type. By default it does
+     nothing.
 
 </ul>
 
-Note: We assume that dispatching to <code>a.destroy(p)</code> is sufficient and
-that it is well defined to call <code>p-&gt;~T()</code> on an indeterminate
-value when <code>T</code> has a trivial destructor. If not, <code>destroy</code>
-needs new wording.
-
-In `basic_string`, IFF `allocator_traits::uninitialized_default_construct<Alloc,
-charT*>` is available, add:
-
--- PLAN A --
-
-* <code>resize_uninitialized(size_type)</code> - Like <code>resize()</code> but
-  default initializes any new elements added to the string. While the string
-  contains indeterminate values it is said to be in an "uninitialized" state.
-  Only a limited set of operations have defined behavior in this state: the
-  destructor, <code>size()</code>, <code>capacity()</code>, <code>data()</code>,
-  <code>assign()</code>, etc. .... The string cannot be copied, moved, or
-  swapped in the uninitialized state. The uninitialized state is cleared when
-  all indeterminate values have been assigned or by certain methods such as
-  <code>resize</code>, <code>assign</code>, <code>clear()</code>, etc. ....
-
--- PLAN B --
+In [**allocator.traits**] add:
 
 <ul>
 
-<li> <code>uninitialized_data()</code> - Returns a pointer to elements in
-     (<code>size()</code>, <code>capacity()</code>] All but the first of these
-     elements may have indeterminate values, but may be assigned.
+<li> `implicit_construct(Alloc& a, T* p)` - A member function which:
+     <ul>
 
-     Writing a value other than <code>charT()</code> to the element at
-     <code>size()</code> puts the string into an "unterminated" state. While in
-     the unterminated state <code>c_str()</code> has undefined behavior.
-     Additionally the "one past the end is charT()" guarantee is removed. The
-     string cannot be copied, moved, or swapped in the unterminated state.
-     Several methods can clear the "unterminated" state: <code>append</code>,
-     <code>resize</code>, <code>assign()</code>, etc. .... The </li>
+     <li> Calls `a.implicit_construct(p)` if it is well formed, otherwise ...
+          </li>
 
-     Note: This effectively requires <code>basic_string</code> to always default
-     initialize elements in spare capactity because, if
-     <code>uninitialized_data()</code> has ever been called,
-     <code>destroy</code> must also be called. Presumably there's some compile
-     time cost for this logic. Is this acceptable?
+     <li> Does nothing if T is an <em>implicit lifetime</em> type and
+          `a.construct(p)` is <em>not</em> well formed, otherwise ... </li>
 
-<li> <code>append_from_capacity(size_type n)</code> - Appends <code>n</code>
-     elements from capacity. The application must have assigned these elements
-     otherwise the behavior is undefined. Note that this allows the application
-     to "snap" to a length based on the number of elements assigned.</li>
+     <li> Does not participate in overload resolution.</li>
+
+     </ul>
+</li>
+</ul>
+
+With allocator support in place, we can enable the optimization for `vector` by
+adding the following two member functions:
+
+<ul>
+
+<li> <code>T* uninitialized_data()</code> - Returns a pointer to storage that
+     would back elements (<code>size()</code>, <code>capacity()</code>]. Note
+     that this storage has indeterminate values. It may be initialized by
+     casting to `void` and then to `char`, `usgigned char`, or `std::byte`. See
+     ([**basic.life**]p6.4).
+
+     Does not participate in overload resolution if
+     `allocator_traits<Allocator>::construct_magcially(Element *)` is not well
+     formed.
+
+<li> <code>insert_from_capacity(size_type n)</code> - Appends <code>n</code>
+     elements from capacity. The application must have initialized the storage
+     backing these elements otherwise the behavior is undefined.
+
+     Does not participate in overload resolution if
+     `allocator_traits<Allocator>::construct_magcially(Element *)` is not well
+     formed. </li>
 
 </ul>
 
-Note: Both PLAN A and PLAN B add unfortunate "states" to
-      <code>basic_string</code>. However, I'm pretty sure that PLAN B does not
-      add a special state to <code>vector</code>. If we want PLAN B for
-      <code>vector</code>, do we also want it for <code>basic_string</code>?
 
-Motivation {#motivation}
+Motivating examples {#motivation}
 ==========
 
-When appending to a string, we may know the total length of the data that we
-intend to append before the actual append. For example, we may be stamping N
-copies of a pattern or appending N <code>basic_string_view</code>s. Ideally, we
-would ask <code>basic_string</code> to pre-allocate space into which we can
-write. However, <code>basic_string</code> does not give us an zero-overhead API
-to do this.
+The extra overhead described in these examples is often small, however it can be
+significant in performance critical execution paths.
 
-Some of the current choices include:
+Example: reading from the network
+---------------------------------
+
+The current `vector` inteface forces a copy when reading objects from the
+network. `std::byte` keeps the example simple however the principle applies to
+user defined <em>implicit lifetime</em> types:
+
+<xmp>
+
+using ByteVec = vector<byte>;
+
+class Socket {
+public:
+    size_t Read(byte* buf, size_t size);
+    ...
+};
+
+unsigned ReadSome(ByteVec& out, Socket& socket)
+{
+  byte buf[kBufferSize];
+  size_t size = socket.Read(buf, kBufferSize);
+  out.insert(out.end(), &buff[0], &buff[0] + size); // BAD: Copies.
+  return size;
+}
+</xmp>
+
+
+With the changes proposed in this paper the above example would be optimized as:
+
+<xmp>
+unsigned ReadSome(ByteVec& out, Socket& socket)
+{
+  out.reserve(out.size() + kBufferSize);
+  size_t size = socket.Read(
+      out.uninitialized_data(), data.capacity() - data.size());
+  out.insert_from_capacity(out.end(), &buff[0], &buff[0] + size); // GOOD: No copies.
+  return size;
+}
+</xmp>
+
+
+Example: stamping a pattern
+---------------------------
+
+In this case, `vector`'s interface offers two options, neither optimial:
 
 <ol>
 
-<li> Call <strong><code>reserve</code></strong> and then <code>append</code> in
-     a loop. However, this incurs bookkeeping overhead in each append.</li>
+<li> Call <strong><code>resize</code></strong> and write directly into the
+     container. However, this <em>value initializes</em> elements, typically
+     writing zeros: </li>
 
 <xmp>
-void AppendPattern(string& out, string_view pattern, unsigned count)
+using IntVec = vector<int>;
+
+void AppendPattern(IntVec& out, span<const int> pattern, unsigned count)
 {
-  out.reserve(out.size() + pattern.size() * count); // GOOD: No unnecessary writes.
-  //  ^^^^^^^
-  for (unsigned i = 0; i < count; ++i) {
-    out.append(pattern);                            // BAD: Bookkeeping in append.
+  auto start = out.size();
+  auto size = static_cast<IntVec::size_type>(pattern.size());
+  out.resize(start + size * count);       // BAD: Write a lot of zeros.
+  //  ^^^^^^
+  for (auto cur = out.begin() + start;
+       cur < out.end(); cur += size) {
+    memcpy(&*cur, pattern.data(), size)); // GOOD: No bookkeeping.
   }
 }
 </xmp>
 
-<li> Call <strong><code>resize</code></strong> and write directly into the
-     string. However, this value initializes elements, typically writing zeros:
-     </li>
+<li> Call <strong><code>reserve</code></strong> and then <code>insert</code> in
+     a loop. However, this incurs bookkeeping overhead in each insert: </li>
 
 <xmp>
-void AppendPattern(string& out, string_view pattern, unsigned count)
+void AppendPattern(IntVec& out, span<const int> pattern, unsigned count)
 {
-  string::size_type start = out.size();
-  out.resize(start + pattern.size() * count);        // BAD: Write a lot of zeros.
-  //  ^^^^^^
-  for (auto cur = out.begin() + start;
-      cur < out.end(); cur += pattern.size()) {
-      memcpy(&*cur, pattern.data(), pattern.size()); // GOOD: No bookkeeping.
+  auto start = out.size();
+  auto size = static_cast<IntVec::size_type>(pattern.size());
+  out.reserve(out.size() + size * count);   // GOOD: No unnecessary writes.
+  //  ^^^^^^^
+  for (unsigned i = 0; i < count; ++i) {
+    out.insert(out.end(), pattern.begin(),  // BAD: Bookkeeping in insert.
+               pattern.end());
   }
 }
 </xmp>
 
 </ol>
 
-The above overheads are often small, but they can be significant in performance
-critical call paths.
+With the changes proposed in this paper the above examples would be optimized
+as:
 
-Proposed Resolution {#resolution}
-===================
-
--- PLAN A --
-
-We propose adding <code>resize_uninitialized</code> which
-<em>default-initializes</em> new elements. With this API we can write:
-
+<ol>
 <xmp>
-void AppendPattern(string& out, string_view pattern, unsigned count)
+void AppendPattern(IntVec& out, span<const int> pattern, unsigned count)
 {
-  string::size_type start = out.size();
-  out.resize_uninitialized(start + pattern.size() * count); // GOOD: No unnecessary writes.
-  //  ^^^^^^^^^^^^^^^^^^^^
-  // out is in the uninitizliaed state.
-  for (auto cur = out.begin() + start; cur < out.end(); cur += pattern.size()) {
-      memcpy(&*cur, pattern.data(), pattern.size());        // GOOD: No bookkeeping.
+  auto start = out.size();
+  auto size = static_cast<IntVec::size_type>(pattern.size());
+  auto total = size * count;
+  out.reserve(out.size() + total);                      // GOOD: No unnecessary writes.
+  int* const end = out.uninitialized_data() + total;
+  for (int* cur = out.uninitialized_data(); i < end; cur += size) {
+    memcpy(&*cur, pattern.data(), size * sizeof(int))); // GOOD: No bookkeeping.
   }
-  // Uninitizliaed state cleared.
+  out.insert_from_capacity(total);
 }
 </xmp>
-
-Here's an example for managing the uninitialized state in the face of failure:
-
-<xmp>
-void WritePattern(char *p, string_view pattern, unsigned count);  // May throw.
-
-void AppendPattern(string& out, string_view pattern, unsigned count)
-{
-  string::size_type start = out.size();
-  out.resize_uninitialized(start + pattern.size() * count);
-  // Guarentee that we clear uninitialized state.
-  experimental::scope_fail fail([] { out.resize(start); });
-  WritePattern(out.data() + start(), pattern, count);
-}
-</xmp>
-
--- PLAN B --
-
-<xmp>
-void AppendPattern(string& out, string_view pattern, unsigned count)
-{
-  string::size_type start = out.size();
-  size_type len = pattern.size() * count;
-  out.reserve(start + len);
-  char* cur = out.uninitialized_data();
-  char* const end = cur + len;
-  for (; cur < end; cur += pattern.size()) {
-      memcpy(&*cur, pattern.data(), pattern.size());
-  }
-  out.append_from_capacity(len);
-}
-</xmp>
-
-Here's an example for managing the uninitialized state in the face of failure:
-
-<xmp>
-void WritePattern(char *p, string_view pattern, unsigned count);  // May throw.
-
-void AppendPattern(string& out, string_view pattern, unsigned count)
-{
-  size_type len = pattern.size() * count;
-  out.reserve(out.size() + len);
-  experimental::scope_fail fail([] {       // Guarentee that we clear
-      *out.uninitialized_data() = char();  // unterminated state.
-  });
-  WritePattern(out.uninitialized_data, pattern, count);
-  out.append_from_capacity(len);
-}
-</xmp>
+</ol>
 
 Implementation Experience {#experience}
 ========================
 
-Google {#google}
+Google <code>basic_string</code> {#google}
 ------
 
 Google has hacked their internal <code>basic_string</code> implementation to
-provide this API and has measured performance improvements (that are not public)
-that justify maintaining this extension.
+provide a related `resize_uninitialized` API and has measured performance
+improvements (that are not public) that justify maintaining this extension.
 
 Google's Abseil open source library provides hooks for other users that want to
 independently apply the same hack. See:
@@ -234,8 +232,10 @@ to improve performance. See:
 <a href="https://github.com/google/protobuf/blob/master/src/google/protobuf/stubs/stl_util.h#L61">
 https://github.com/google/protobuf/blob/master/src/google/protobuf/stubs/stl_util.h#L61</a>
 
-Boost {#boost}
+Boost containers {#boost}
 -----
+
+Boost provides a related optimization for vector-like container:
 
 * <a href="https://github.com/boostorg/container/commit/14f092ab00def8e692b81d57d0466a617a6f6130">
   Default initialization for vector-like containers</a> Ion Gaztañaga.
@@ -260,85 +260,22 @@ Boost {#boost}
    ...
 </xmp>
 
-Also supported in Boost Container small_vector, static_vector, deque, stable_vector, string.
+These optimizations are also supported in Boost Container small_vector,
+static_vector, deque, stable_vector, string.
 
 
-VMware {#vmware}
+VMware string builders {#vmware}
 ------
 
-VMware has string formatters that avoid <code>std::string</code> due, in part,
+VMware has string builders that avoid <code>std::string</code> due, in part,
 to <code>reserve</code>'s zero-writing behavior. This work was done without
 knowledge of Google's <code>resize_uninitialized</code> extension.
 
 
-Alternatives considered {#alt}
-=======================
-
-<ul><li>
-
-**Q:** Why not <code>vector::resize_uninitialized</code>?
-
-**A:** <br/> a) Strings often have internal structure in the sequence of elements,
-  whereas vectors do not. <br/> b) Strings most often contain literal types like char
-  where default initialization does nothing, while vectors are often used for
-  user defined types where default initialization does additional work. </li>
-
-**Q:** Why not <code>basic_string::insert_uninitialized(...)</code>, etc.?
-
-**A:** Implementation experience shows that <code>resize</code> covers the
-  important use cases.
-
-</li></ul>
-
 Wording {#wording}
 =======
 
-Note: OUTDATED
-
-Relative to [[N4727]]:
-
-Change 24.3.2 [**basic.string**] as depicted:
-<blockquote>
-<pre nohighlight>
-// 24.3.2.4, capacity
-size_type size() const noexcept;
-size_type length() const noexcept;
-size_type max_size() const noexcept;
-void resize(size_type n, charT c);
-void resize(size_type n);
-<ins>void resize_uninitialized(size_type n);</ins>
-size_type capacity() const noexcept;
-void reserve(size_type res_arg = 0);
-void shrink_to_fit();
-void clear() noexcept;
-[[nodiscard]] bool empty() const noexcept;
-</pre>
-</blockquote>
-
-Change [**string.capacity**] as depicted:
-
-<blockquote>
-<ins>
-<pre nohighlight>
-void resize_uninitialized(size_type n);
-</pre>
-<ol start="9">
-
-<li> <em>Throws:</em> <tt>length_error</tt> if <tt>n > max_size()</tt>.
-
-<li> <em>Effects:</em> Alters the length of the string designated by
-     <tt>*this</tt> as follows:
-
-— If <tt>n &lt;= size()</tt>, Calls <tt>resize(n)</tt>.
-
-— If <tt>n &gt; size()</tt>, the function replaces the string designated
-  by <tt>*this</tt> with a string of length <tt>n</tt> whose first <tt>size()</tt>
-  elements are a copy of the original string designated by <tt>*this</tt>, and
-  whose remaining elements are all default initialized.</li>
-
-</ol>
-</ins>
-</blockquote>
+TBD
 
 Acknowledgements {#acknowledgements}
 ================
