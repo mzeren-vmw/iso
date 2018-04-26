@@ -12,53 +12,68 @@ Editor: Chris Kennelly, Google, ckennelly@google.com
 Date: 2018-03-19
 Markup Shorthands: markdown yes
 
-Abstract: Extend <code>allocator_traits</code> and <code>vector</code> to allow
-          efficient addition of elements of <em>implicit lifetime</em> type.
+Abstract: Extend allocators, <code>allocator_traits</code>, and
+          <code>vector</code> to allow efficient addition of elements of
+          <em>implicit lifetime</em> type.
 
 </pre>
 
 Summary {#summary}
 =======
 
-[P0593R2] notes that "there is a family of types for which programmers assume they
-do not need to explicitly create objects". These <em>implicit lifetime</em>
-types are: <ul>
+[P0593R2] notes that
 
-<li> Scalar types </li>
-
-<li> Array types (with any element type) </li>
-
-<li> Class types with a trivial destructor and a trivial constructor (of any
-     kind) </li>
-
-</ul
+<blockquote> ... there is a family of types for which programmers assume they do
+not need to explicitly create objects". These [are] <em>implicit lifetime</em>
+types ... </blockquote>
 
 When working with contiguous containers of <em>implicit lifetime</em> types it
-may be more efficient to initialize objects without explicit calls to
-constructors. For example, the application may be reading elements from a file
-or the network, or it may be stamping out a pattern of elements.
+can be more efficient to initialize objects without value initialization or
+explicit calls to constructors. For example, the application may read elements
+from the network or it may stamp out a pattern of multiple elements at a time.
 
-Allocator aware containers like `vector` must inform the allocator of
-construction and destruction of objects, even when those operations are trivial.
-This is accomplished with the following additions:
+Allocator aware containers use their allocator for object construction and
+destruction, even when those operations are trivial. This proposal adds new
+allocator requirements and new members of `allocator_traits` that inform the
+allocator, post-facto, of the "creation" of objects of implicit lifetime type.
 
-In [**allocator.requirements**] (Table 31) add:
+The proposal then goes on to extend `vector`'s interface to allow memcpy style
+initizliation and insersion of objects.
+
+Approach {#approach}
+-----------------------
+
+Existing libraries, for example Google's Abseil and Boost, have similar
+facilities. However, they are limited to types with default initialization. This
+proposal, blessed by the power of [0593R2], extends the optimization to the
+broader set of <em>implicit lifetime</em> types. In particular, class types with
+trivial move or copy constructors, but not necessarily trivial default
+constructors, are implicit lifetime types. Implicit lifetime class types must
+have a trivial destructor as well.
+
+Working with the broader set of types requires a two step interaction with the
+container. First, the container exposes uninitialized memory that the
+application initializes. Second, the application tells the container how many
+objects were initialized. In this way the container informs the allocator about
+valid objects only.
+
+Starting with allocators, in [**allocator.requirements**] (Table 31) we add:
 
 <ul>
 
-<li> `a.implicit_construct(c)` which informs the allocator of an implicit
-     lifetime object that has been initialized by the application. This member
-     function, if provided, does not participate in overload resolution unless
-     <code>C</code> is an <em>implicit lifetime</em> type. By default it does
-     nothing.
+<li> `a.implicit_construct(c)` - This expression informs the allocator of an
+     implicit lifetime object that has been initialized by the application. This
+     member function, if provided, does not participate in overload resolution
+     unless <code>C</code> is an <em>implicit lifetime</em> type. By default it
+     does nothing.
 
 </ul>
 
-In [**allocator.traits**] add:
+Then in [**allocator.traits**] we add:
 
 <ul>
 
-<li> `implicit_construct(Alloc& a, T* p)` - A member function which:
+<li> `implicit_construct(Alloc& a, T* p)` - This member function:
      <ul>
 
      <li> Calls `a.implicit_construct(p)` if it is well formed, otherwise ...
@@ -85,7 +100,7 @@ adding the following two member functions:
      ([**basic.life**]p6.4).
 
      Does not participate in overload resolution if
-     `allocator_traits<Allocator>::construct_magcially(Element *)` is not well
+     `allocator_traits<Allocator>::implicit_construct(Element *)` is not well
      formed.
 
 <li> <code>insert_from_capacity(size_type n)</code> - Appends <code>n</code>
@@ -98,19 +113,38 @@ adding the following two member functions:
 
 </ul>
 
+Open Issues {#issues}
+===========
+
+<ul>
+
+<li> <strong>Q:</strong> Can `impicit_construct` throw? <br/>
+     <strong>A:</strong> Yes.</li>
+
+<li> <strong>Q:</strong> Should `insert_from_capacity(n)` return an iterator,
+     like the other "inserts"? <br/>
+     <strong>A:</strong> ??? </li>
+
+<li> <strong>Bikeshedding</strong> - `insert_from_capacity` <br/>
+     `resize_from_capacity`<br/>
+     `resize_uninitialized`<br/> (but the should not be uninitizlized...)
+     `append_from_capacity`<br/> (would be nice for `basic_string`)
+     </li>
+
+</ul>
 
 Motivating examples {#motivation}
-==========
+===================
 
-The extra overhead described in these examples is often small, however it can be
-significant in performance critical execution paths.
+The extra overhead described in the examples below is often small, however it
+can be significant in performance critical execution paths.
 
-Example: reading from the network
+Example: reading from the network {#network}
 ---------------------------------
 
 The current `vector` inteface forces a copy when reading objects from the
-network. `std::byte` keeps the example simple however the principle applies to
-user defined <em>implicit lifetime</em> types:
+network. (`std::byte` keeps the example simple, but the principle applies to
+user defined <em>implicit lifetime</em> types.):
 
 <xmp>
 
@@ -122,25 +156,29 @@ public:
     ...
 };
 
-unsigned ReadSome(ByteVec& out, Socket& socket)
+unsigned ReadSome(ByteVec* out, Socket& socket)
 {
   byte buf[kBufferSize];
-  size_t size = socket.Read(buf, kBufferSize);
-  out.insert(out.end(), &buff[0], &buff[0] + size); // BAD: Copies.
+  auto size = socket.Read(&buf[0], kBufferSize);
+  out->insert(out.end(), &buff[0], &buff[0] + size); // BAD: Copies.
   return size;
 }
+
 </xmp>
 
 
-With the changes proposed in this paper the above example would be optimized as:
+With the changes proposed in this paper, the above example would be optimized
+as:
 
 <xmp>
-unsigned ReadSome(ByteVec& out, Socket& socket)
+unsigned ReadSome(ByteVec* out, Socket& socket)
 {
   out.reserve(out.size() + kBufferSize);
-  size_t size = socket.Read(
-      out.uninitialized_data(), data.capacity() - data.size());
-  out.insert_from_capacity(out.end(), &buff[0], &buff[0] + size); // GOOD: No copies.
+  auto size = socket.Read(
+      out->uninitialized_data(), data.capacity() - data.size());   // GOOD: No copies.
+  //       ^^^^^^^^^^^^^^^^^^
+  out->insert_from_capacity(size);                                 // GOOD: No-op.
+  //   ^^^^^^^^^^^^^^^^^^^^
   return size;
 }
 </xmp>
@@ -149,7 +187,8 @@ unsigned ReadSome(ByteVec& out, Socket& socket)
 Example: stamping a pattern
 ---------------------------
 
-In this case, `vector`'s interface offers two options, neither optimial:
+For a second example consider stamping a repeating pattern of elements.
+`vector`'s interface offers two options, neither optimial:
 
 <ol>
 
@@ -163,12 +202,13 @@ using IntVec = vector<int>;
 void AppendPattern(IntVec& out, span<const int> pattern, unsigned count)
 {
   auto start = out.size();
-  auto size = static_cast<IntVec::size_type>(pattern.size());
-  out.resize(start + size * count);       // BAD: Write a lot of zeros.
+  auto step = pattern.size();
+  out.resize(start + step * count);    // BAD: Write a lot of zeros.
   //  ^^^^^^
   for (auto cur = out.begin() + start;
-       cur < out.end(); cur += size) {
-    memcpy(&*cur, pattern.data(), size)); // GOOD: No bookkeeping.
+       cur < out.end(); cur += step) {
+    memcpy(&*cur, pattern.data(),      // GOOD: No bookkeeping.
+           step * sizeof(int)));       // BAD: UB for class types (?)
   }
 }
 </xmp>
@@ -179,12 +219,10 @@ void AppendPattern(IntVec& out, span<const int> pattern, unsigned count)
 <xmp>
 void AppendPattern(IntVec& out, span<const int> pattern, unsigned count)
 {
-  auto start = out.size();
-  auto size = static_cast<IntVec::size_type>(pattern.size());
-  out.reserve(out.size() + size * count);   // GOOD: No unnecessary writes.
+  out.reserve(out.size() + pattern.size() * count); // GOOD: No unnecessary writes.
   //  ^^^^^^^
   for (unsigned i = 0; i < count; ++i) {
-    out.insert(out.end(), pattern.begin(),  // BAD: Bookkeeping in insert.
+    out.insert(out.end(), pattern.begin(),          // BAD: Bookkeeping in insert.
                pattern.end());
   }
 }
@@ -192,34 +230,37 @@ void AppendPattern(IntVec& out, span<const int> pattern, unsigned count)
 
 </ol>
 
-With the changes proposed in this paper the above examples would be optimized
+With the changes proposed in this paper the above example would be optimized
 as:
 
 <ol>
 <xmp>
 void AppendPattern(IntVec& out, span<const int> pattern, unsigned count)
 {
-  auto start = out.size();
-  auto size = static_cast<IntVec::size_type>(pattern.size());
-  auto total = size * count;
-  out.reserve(out.size() + total);                      // GOOD: No unnecessary writes.
-  int* const end = out.uninitialized_data() + total;
-  for (int* cur = out.uninitialized_data(); i < end; cur += size) {
-    memcpy(&*cur, pattern.data(), size * sizeof(int))); // GOOD: No bookkeeping.
+  auto step = static_cast<IntVec::size_type>(pattern.size());
+  auto total = step * count;
+  out.reserve(out.size() + total);  // GOOD: No unnecessary writes.
+  int* cur = out.uninitialized_data();
+  //             ^^^^^^^^^^^^^^^^^^
+  int* end = cur + total;
+  for (;cur < end; cur += step) {
+    memcpy(cur, pattern.data(),     // GOOD: No bookkeeping.
+           step * sizeof(int)));
   }
-  out.insert_from_capacity(total);
+  out.insert_from_capacity(total);  // GOOD: No-op.
+  //  ^^^^^^^^^^^^^^^^^^^^
 }
 </xmp>
 </ol>
 
 Implementation Experience {#experience}
-========================
+==============
 
 Google <code>basic_string</code> {#google}
 ------
 
 Google has hacked their internal <code>basic_string</code> implementation to
-provide a related `resize_uninitialized` API and has measured performance
+provide a related `resize_uninitialized` API. They have measured performance
 improvements (that are not public) that justify maintaining this extension.
 
 Google's Abseil open source library provides hooks for other users that want to
@@ -235,7 +276,7 @@ https://github.com/google/protobuf/blob/master/src/google/protobuf/stubs/stl_uti
 Boost containers {#boost}
 -----
 
-Boost provides a related optimization for vector-like container:
+Boost provides a related optimization for vector-like containers:
 
 * <a href="https://github.com/boostorg/container/commit/14f092ab00def8e692b81d57d0466a617a6f6130">
   Default initialization for vector-like containers</a> Ion Gaztañaga.
@@ -260,22 +301,301 @@ Boost provides a related optimization for vector-like container:
    ...
 </xmp>
 
-These optimizations are also supported in Boost Container small_vector,
-static_vector, deque, stable_vector, string.
+These optimizations are also supported in Boost Container's `small_vector`,
+`static_vector`, `deque`, `stable_vector`, and `string`.
 
 
 VMware string builders {#vmware}
 ------
 
 VMware has string builders that avoid <code>std::string</code> due, in part,
-to <code>reserve</code>'s zero-writing behavior. This work was done without
-knowledge of Google's <code>resize_uninitialized</code> extension.
+to <code>reserve</code>'s zero-writing behavior.
 
 
 Wording {#wording}
 =======
 
-TBD
+[**allocator.requirements**] {#requirements}
+----------------------------
+
+In [**allocator.requirements**], Table 31:
+
+<blockquote>
+
+<table>
+
+<tr>
+<th>Expression</th>
+<th>Return&nbsp;type</th>
+<th>Assertion/note <br/> pre-/post-condition</th>
+<th>Default</th>
+</tr>
+
+<tr><td>...</td></tr>
+
+<tr>
+<td>`a.construct(c, args)`</td>
+<td>(not used)</td>
+<td><em>Effects:</em> Constructs an object of type `C` at `c`</td>
+<td>`::new((void*)c) C(forward<Args>(args)...)`</td>
+</tr>
+
+<tr>
+<td><ins>`a.implicit_construct(c)`</ins></td>
+<td><ins>(not used)</ins></td>
+
+<td><ins><em>Effects:</em> Informs the allocator that an object of type `C` has been
+constrcuted at `c`. Only participates in overload resolution if `C` is an
+<em>implicit lifetime</em> type.</ins></td>
+
+<td><ins>Does nothing</ins></td>
+</tr>
+
+<tr>
+<td>`a.destroy(c)`</td>
+<td>(not used)</td>
+<td><em>Effects:</em> Destroys the object at `c`</td>
+<td>`c->~C()`</td>
+</tr>
+
+</table>
+...
+
+</blockquote>
+
+And then in [**allocator.requirements**]p9:
+
+<blockquote>
+
+<ol start="9">
+
+<li> An allocator may constrain the types on which it can be instantiated and
+the arguments for which its `construct`<ins>, `implicit_construct`,</ins> or
+`destroy` members may be called. If a type cannot be used with a particular
+allocator, the allocator class or the call to `construct`<ins>,
+`implicit_construct`,</ins> or `destroy` may fail to instantiate. </li>
+
+</ol>
+</blockquote>
+
+[**allocator.traits**] {#traits}
+----------------------
+
+In [**allocator.traits**]
+
+<blockquote>
+<pre>
+namespace std {
+  template<class Alloc> struct allocator_traits {
+    using allocator_type     = Alloc;
+
+    using value_type         = typename Alloc::value_type;
+
+    using pointer            = see below ;
+    using const_pointer      = see below ;
+    using void_pointer       = see below ;
+    using const_void_pointer = see below ;
+
+    using difference_type    = see below ;
+    using size_type          = see below ;
+
+    using propagate_on_container_copy_assignment = see below ;
+    using propagate_on_container_move_assignment = see below ;
+    using propagate_on_container_swap            = see below ;
+    using is_always_equal                        = see below ;
+
+    template<class T> using rebind_alloc = see below ;
+    template<class T> using rebind_traits = allocator_traits<rebind_alloc<T>>;
+
+    [[nodiscard]] static pointer allocate(Alloc& a, size_type n);
+    [[nodiscard]] static pointer allocate(Alloc& a, size_type n, const_void_pointer hint);
+
+    static void deallocate(Alloc& a, pointer p, size_type n);
+
+    template<class T, class... Args>
+      static void construct(Alloc& a, T* p, Args&&... args);
+    <ins>template<class T>
+      static void implicit_construct(Alloc& a, T* p);</ins>
+
+    template<class T>
+      static void destroy(Alloc& a, T* p);
+
+    static size_type max_size(const Alloc& a) noexcept;
+
+    static Alloc select_on_container_copy_construction(const Alloc& rhs);
+  };
+}
+</pre>
+</blockquote>
+
+In [**allocator.traits.members**]:
+
+<blockquote>
+
+<pre>
+  template<class T, class... Args>
+    static void construct(Alloc& a, T* p, Args&&... args);
+</pre>
+
+<ol start="5">
+
+<li> <em>Effects:</em> Calls `a.construct(p, std::forward<Args>(args)...)` if
+     that call is well-formed; otherwise, invokes `::new (static_cast<void*>(p))
+     T(std::forward<Args>(args)...)`.</li>
+
+</ol>
+<ins>
+<pre>
+  template<class T, class... Args>
+    static void implicit_construct(Alloc& a, T* p, Args&&... args);
+</pre>
+
+<ol start="6">
+
+<li> <em>Effects:</em> Calls `a.implicit_construct(p)` if that call is
+     well-formed; otherwise, does nothing if T is an <em>implicit lifetime</em>
+     type and `a.construct(p)` is <em>not</em> well formed; otherwise, does not
+     participate in overload resolution.</li>
+
+</ol>
+</ins>
+<pre>
+  template<class T>
+    static void destroy(Alloc& a, T* p);
+</pre>
+<ol start="7">
+
+<li> <em>Effects:</em> Calls `a.destroy(p)` if that call is well-formed;
+     otherwise, invokes `p->~T().`</li>
+
+</ol>
+</blockquote>
+
+
+[**vector**] {#vector}
+------------
+
+In [**vector.overview**]
+
+<blockquote>
+<pre>
+namespace std {
+  template<class T, class Allocator = allocator<T>>
+  class vector {
+
+    ...
+
+    <em>// 26.3.11.4, data access</em>
+    T* data() noexcept;
+    const T* data() const noexcept;
+    <ins>T* uninitialized_data() noexcept;</ins>
+
+    <em>// 26.3.11.5, modifiers</em>
+    template<class... Args> reference emplace_back(Args&&... args); void push_back(const T& x);
+    void push_back(T&& x);
+    void pop_back();
+
+    template<class... Args> iterator emplace(const_iterator position, Args&&... args);
+    iterator insert(const_iterator position, const T& x);
+    iterator insert(const_iterator position, T&& x);
+    iterator insert(const_iterator position, size_type n, const T& x);
+    template<class InputIterator>
+      iterator insert(const_iterator position, InputIterator first, InputIterator last);
+    iterator insert(const_iterator position, initializer_list<T> il);
+    <ins>
+    iterator insert_from_capacity(size_type n);
+    </ins>
+    iterator erase(const_iterator position);
+    iterator erase(const_iterator first, const_iterator last);
+
+    ...
+</pre>
+</blockquote>
+
+In [**vector.data**]:
+
+<blockquote>
+<pre>
+T*         data() noexcept;
+const T*   data() const noexcept;
+</pre>
+<ol>
+
+<li> <em>Returns:</em> A pointer such that `[data(), data() + size())` is a
+     valid range. For a non-empty vector, `data() == addressof(front())`. </li>
+
+<li> <em>Complexity:</em> Constant time. </li>
+</ol>
+<ins>
+<pre>
+T*         uninitialized_data() noexcept;
+</pre>
+<ol start="3">
+
+<li> <em>Returns:</em> Returns a pointer to uninitized storage that would back
+     elements in the range `(size(), capacity()]`. [<em>Note:</em> This storage
+     may be initialized by casting to `void` and then to `char`, `usgigned
+     char`, or `std::byte`. See ([**basic.life**]p6.4). - <em>end note</em>]
+     </li>
+
+
+<li> <em>Remarks:</em> This member function does not participate in overload
+     resolution if `allocator_traits<Allocator>::implicit_construct(Element *)`
+     is not well formed. </li>
+
+<li> <em>Complexity:</em> Constant time. </li>
+
+</ol>
+</ins>
+</blockquote>
+
+In [**vector.modifiers**]
+
+<blockquote>
+<ol start="2">
+
+<li> <em>Complexity:</em> The complexity is linear in the number of elements
+     inserted plus the distance to the end of the vector.</li>
+
+</ol>
+<ins>
+<pre>
+iterator insert_from_capacity(size_type n);
+</pre>
+<ol start="3">
+
+<li> <em>Requires:</em> - `n <= capacity() - size()`. </li>
+
+<li> <em>Remarks:</em> - Appends <code>n</code> elements by implicitly creating
+     them from capacity. The application must have initialized the storage
+     backing these elements otherwise the behavior is undefined. This member
+     fuction does not participate in overload resolution if
+     `allocator_traits<Allocator>::construct_magcially(Element *)` is not well
+     formed. </li>
+
+<li> <em>Returns:</em> - an iterator to the first element inserted, otherise
+     `end()`. </li>
+
+<li> <em>Complexity:</em> - The complexity is linear in the number of elements
+     inserted. </li>
+
+</ol>
+</ins>
+
+<pre>
+iterator erase(const_iterator position);
+iterator erase(const_iterator first, const_iterator last);
+void pop_back();
+</pre>
+<ol start="7">
+
+<li> <em>Effects:</em> Invalidates iterators and references at or after the
+     point of the erase. </li>
+
+<li> ... </li>
+
+</ol>
+</blockquote>
 
 Acknowledgements {#acknowledgements}
 ================
