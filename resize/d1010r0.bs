@@ -56,10 +56,11 @@ Approach {#approach}
 
 Allocator aware containers must cooperate with their allocator for object
 construction and destruction. Working with the broader set of implicit lifetime
-types requires a two step interaction between the application and container.
-First, the container exposes memory that the application initializes. Second,
-the application tells the container how many objects were initialized. The
-container can in turn tell the allocator about the newly created objects.
+types requires that the container use a two step interaction with the
+application. First, the container exposes memory that the application
+initializes. Second, the application tells the container how many objects were
+initialized. The container can then tell the allocator about the newly created
+objects.
 
 References and wording are relative to [[N4741]].
 
@@ -67,10 +68,11 @@ Starting with [**allocator.requirements**] (Table 31), we add:
 
 <ul>
 
-<li> `a.implicit_construct(c)` - This expression informs the allocator of an
-     implicit lifetime object that has been initialized by the application. This
-     member function, if provided, does not participate in overload resolution
-     unless `C` is an implicit lifetime type. By default it does nothing.
+<li> `a.implicit_construct(c)` - This expression informs the allocator *post
+     facto* of an implicit lifetime object that has been initialized and
+     implicitly created by the application. This member function, if provided,
+     does not participate in overload resolution unless `C` is an implicit
+     lifetime type. By default it does nothing.
 
 </ul>
 
@@ -130,14 +132,15 @@ Motivating examples {#motivation}
 The extra overhead described in the examples below is often small, yet the
 optimization can be significant in performance critical execution paths.
 
-Casts have been elided to keep the examples simple.
+Casts, using declarations, and other details have been elided to keep the
+examples simple.
 
 Example: reading from the network {#network}
 ---------------------------------
 
 The current `vector` interface forces a copy when reading objects from the
-network. (`std::byte` keeps the example simple, but the principle applies to
-user defined implicit lifetime types.):
+network, or a file, etc.. (`std::byte` keeps the example simple, but the
+principle applies to user defined implicit lifetime types as well.):
 
 <xmp>
 using ByteVec = vector<byte>;
@@ -166,9 +169,9 @@ as:
 unsigned ReadSome(ByteVec* out, Socket& socket)
 {
   out.reserve(out.size() + kBufferSize);
-  auto size = socket.Read(out->uninitialized_data(),      // GOOD: No copies.
+  auto size = socket.Read(out->uninitialized_data(),    // GOOD: No copies.
                           data.capacity() - data.size());
-  out->insert_from_capacity(size);                        // GOOD: No-op.
+  out->insert_from_capacity(size);                      // GOOD: No-op.
   return size;
 }
 </xmp>
@@ -232,7 +235,7 @@ void AppendPattern(IntVec& out, span<const int> pattern, unsigned count)
   int* end = cur + total;
   for (;cur < end; cur += step) {
     memcpy(cur, pattern.data(),        // GOOD: No bookkeeping.
-           step * sizeof(int)));
+           step * sizeof(int)));       // GOOD: No UB.
   }
   out.insert_from_capacity(total);     // GOOD: No-op.
 }
@@ -346,7 +349,7 @@ Open Issues {#issues}
      **A:** ??? </li>
 
 <li> **Q:** In pattern stamping example it *is* UB to memcpy into constructed
-     objects?
+     objects, right?
 
      **A:** ??
 
@@ -367,7 +370,7 @@ What name and return type should we use?
 <tr>
 <td>`iterator`</td>
 <td>`insert_from_capacity(n)`</td>
-<td>As proposed</td>
+<td>as proposed</td>
 </tr>
 
 <tr>
@@ -378,13 +381,13 @@ What name and return type should we use?
 
 <tr>
 <td>`void`</td>
-<td>`resize_uninitialized(n)`</td>
+<td>`resize_uninitialized(new_size)`</td>
 <td>but the elements *are* intialized</td>
 </tr>
 
 <tr>
 <td>`void`</td>
-<td>`resize_from_capacity(n)`</td>
+<td>`resize_from_capacity(new_size)`</td>
 <td>`resize` implies / is associated with reallocation, but this operation
     cannot reallocate</td>
 </tr>
@@ -434,9 +437,9 @@ expression:
 <td><ins>(not used)</ins></td>
 
 <td><ins>*Effects:* Informs the allocator that an object of type <code
-    highlight="">C</code> has been created at <code highlight="">c</code>. Only
-    participates in overload resolution if <code highlight="">C</code> is an
-    *implicit lifetime* type.</ins></td>
+    highlight=""> C </code> has been implicitly created at <code highlight="">
+    c</code>. Only participates in overload resolution if <code highlight=""> C
+    </code> is an *implicit lifetime* type.</ins></td>
 
 <td><ins>Does nothing</ins></td>
 </tr>
@@ -677,7 +680,8 @@ iterator insert_from_capacity(size_type n);
      <code highlight="">end()</code>. </li>
 
 <li> <em>Complexity:</em> - The complexity is linear in the number of elements
-     inserted. </li>
+     inserted. [<em>Note:</em> For some allocators, including the default
+     allocator, actual complexity is constant time. - <em> end note</em>] </li>
 
 </ol>
 </ins>
