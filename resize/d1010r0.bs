@@ -619,11 +619,11 @@ const T*   data() const noexcept;
 </pre>
 <ol>
 
-<li> <em>Returns:</em> A pointer such that <code highlight="">[data(), data() +
+<li> *Returns:* A pointer such that <code highlight="">[data(), data() +
      size())</code> is a valid range. For a non-empty vector, <code
      highlight=""> data() == addressof(front())</code>. </li>
 
-<li> <em>Complexity:</em> Constant time. </li>
+<li> *Complexity:* Constant time. </li>
 </ol>
 <ins>
 <pre highlight="">
@@ -631,21 +631,21 @@ T*         uninitialized_data() noexcept;
 </pre>
 <ol start="3">
 
-<li> <em>Returns:</em> A pointer to uninitialized storage that would hold
-     elements in the range <code highlight="">[size(), capacity())</code>.
-     [<em>Note:</em> This storage may be initialized through a pointer obtained
-     by casting <code highlight="">T*</code> to <code highlight="">void*</code>
-     and then to <code highlight="">char*</code>, <code highlight="">unsigned
-     char*</code>, or <code highlight="">std::byte*</code>.
-     ([**basic.life**]p6.4). - <em>end note</em>] </li>
+<li> *Returns:* A pointer to uninitialized storage that would hold elements in
+     the range <code highlight="">[size(), capacity())</code>. [*Note:* This
+     storage may be initialized through a pointer obtained by casting <code
+     highlight="">T*</code> to <code highlight="">void*</code> and then to <code
+     highlight="">char*</code>, <code highlight="">unsigned char*</code>, or
+     <code highlight="">std::byte*</code>. ([**basic.life**]p6.4). - *end note*]
+     </li>
 
 
-<li> <em>Remarks:</em> This member function does not participate in overload
-     resolution if <code highlight="">
+<li> *Remarks:* This member function does not participate in overload resolution
+     if <code highlight="">
      allocator_traits<Allocator>::implicit_construct(Element *) </code> is not
      well formed. </li>
 
-<li> <em>Complexity:</em> Constant time. </li>
+<li> *Complexity:* Constant time. </li>
 
 </ol>
 </ins>
@@ -656,8 +656,8 @@ In [**vector.modifiers**] add new p3-6:
 <blockquote>
 <ol start="2">
 
-<li> <em>Complexity:</em> The complexity is linear in the number of elements
-     inserted plus the distance to the end of the vector.</li>
+<li> *Complexity:* The complexity is linear in the number of elements inserted
+     plus the distance to the end of the vector.</li>
 
 </ol>
 <ins>
@@ -666,22 +666,22 @@ iterator insert_from_capacity(size_type n);
 </pre>
 <ol start="3">
 
-<li> <em>Requires:</em> - <code highlight="">n <= capacity() - size()</code>.
+<li> *Requires:* - <code highlight="">n <= capacity() - size()</code>.
      </li>
 
-<li> <em>Remarks:</em> - Appends <code>n</code> elements by implicitly creating
-     them from capacity. The application must have initialized the storage
-     backing these elements otherwise the behavior is undefined. This member
-     function does not participate in overload resolution if <code highlight="">
+<li> *Remarks:* - Appends <code>n</code> elements by implicitly creating them
+     from capacity. The application must have initialized the storage backing
+     these elements otherwise the behavior is undefined. This member function
+     does not participate in overload resolution if <code highlight="">
      allocator_traits<Allocator>::implicit_construct(Element *)</code> is not
      well formed. </li>
 
-<li> <em>Returns:</em> - an iterator to the first element inserted, otherwise
-     <code highlight="">end()</code>. </li>
+<li> *Returns:* - an iterator to the first element inserted, otherwise <code
+     highlight="">end()</code>. </li>
 
-<li> <em>Complexity:</em> - The complexity is linear in the number of elements
-     inserted. [<em>Note:</em> For some allocators, including the default
-     allocator, actual complexity is constant time. - <em> end note</em>] </li>
+<li> *Complexity:* - The complexity is linear in the number of elements
+     inserted. [*Note:* For some allocators, including the default allocator,
+     actual complexity is constant time. - *end note*] </li>
 
 </ol>
 </ins>
@@ -693,8 +693,8 @@ void pop_back();
 </pre>
 <ol start="7">
 
-<li> <em>Effects:</em> Invalidates iterators and references at or after the
-     point of the erase. </li>
+<li> *Effects:* Invalidates iterators and references at or after the point of
+     the erase. </li>
 
 <li> ... </li>
 
