@@ -420,28 +420,32 @@ expression:
 <tr><td>...</td></tr>
 
 <tr>
-<td>`a.construct(c, args)`</td>
+<td><code highlight="">a.construct(c, args)</code></td>
 <td>(not used)</td>
-<td>*Effects:* Constructs an object of type `C` at `c`</td>
-<td>`::new((void*)c) C(forward<Args>(args)...)`</td>
+
+<td>*Effects:* Constructs an object of type <code highlight="">C</code> at <code
+    highlight="">c</code></td>
+
+<td><code highlight="">::new((void*)c) C(forward<Args>(args)...)</code></td>
 </tr>
 
 <tr>
-<td><ins>`a.implicit_construct(c)`</ins></td>
+<td><ins><code highlight="">a.implicit_construct(c)</code></ins></td>
 <td><ins>(not used)</ins></td>
 
-<td><ins>*Effects:* Informs the allocator that an object of type `C` has
-been created at `c`. Only participates in overload resolution if `C` is an
-*implicit lifetime* type.</ins></td>
+<td><ins>*Effects:* Informs the allocator that an object of type <code
+    highlight="">C</code> has been created at <code highlight="">c</code>. Only
+    participates in overload resolution if <code highlight="">C</code> is an
+    *implicit lifetime* type.</ins></td>
 
 <td><ins>Does nothing</ins></td>
 </tr>
 
 <tr>
-<td>`a.destroy(c)`</td>
+<td><code highlight="">a.destroy(c)</code></td>
 <td>(not used)</td>
-<td>*Effects:* Destroys the object at `c`</td>
-<td>`c->~C()`</td>
+<td>*Effects:* Destroys the object at <code highlight="">c</code></td>
+<td><code highlight="">c->~C()</code></td>
 </tr>
 
 </table>
@@ -457,10 +461,13 @@ And then in [**allocator.requirements**]p9 add references to
 <ol start="9">
 
 <li> An allocator may constrain the types on which it can be instantiated and
-the arguments for which its `construct`<ins>, `implicit_construct`,</ins> or
-`destroy` members may be called. If a type cannot be used with a particular
-allocator, the allocator class or the call to `construct`<ins>,
-`implicit_construct`,</ins> or `destroy` may fail to instantiate. </li>
+     the arguments for which its <code highlight="">construct</code><ins>, <code
+     highlight="">implicit_construct</code>,</ins> or <code highlight="">
+     destroy</code> members may be called. If a type cannot be used with a
+     particular allocator, the allocator class or the call to <code
+     highlight=""> construct</code><ins>, <code highlight=""> implicit_construct
+     </code>,</ins> or <code highlight=""> destroy</code> may fail to
+     instantiate. </li>
 
 </ol>
 </blockquote>
@@ -471,9 +478,9 @@ allocator, the allocator class or the call to `construct`<ins>,
 In [**allocator.traits**] add the declaration of `implicit_construct`.
 
 <blockquote>
-<pre>
+<pre highlight="">
 namespace std {
-  template<class Alloc> struct allocator_traits {
+  template&lt;class Alloc&gt; struct allocator_traits {
     using allocator_type     = Alloc;
 
     using value_type         = typename Alloc::value_type;
@@ -491,20 +498,20 @@ namespace std {
     using propagate_on_container_swap            = see below ;
     using is_always_equal                        = see below ;
 
-    template<class T> using rebind_alloc = see below ;
-    template<class T> using rebind_traits = allocator_traits<rebind_alloc<T>>;
+    template&lt;class T&gt; using rebind_alloc = see below ;
+    template&lt;class T&gt; using rebind_traits = allocator_traits&lt;rebind_alloc&lt;T&gt;&gt;;
 
     [[nodiscard]] static pointer allocate(Alloc& a, size_type n);
     [[nodiscard]] static pointer allocate(Alloc& a, size_type n, const_void_pointer hint);
 
     static void deallocate(Alloc& a, pointer p, size_type n);
 
-    template<class T, class... Args>
+    template&lt;class T, class... Args&gt;
       static void construct(Alloc& a, T* p, Args&&... args);
-    <ins>template<class T>
+    <ins>template&lt;class T&gt;
       static void implicit_construct(Alloc& a, T* p);</ins>
 
-    template<class T>
+    template&lt;class T&gt;
       static void destroy(Alloc& a, T* p);
 
     static size_type max_size(const Alloc& a) noexcept;
@@ -519,41 +526,43 @@ In [**allocator.traits.members**] insert a new p6:
 
 <blockquote>
 
-<pre>
-  template<class T, class... Args>
+<pre highlight="">
+  template&lt;class T, class... Args&gt;
     static void construct(Alloc& a, T* p, Args&&... args);
 </pre>
 
 <ol start="5">
 
-<li> *Effects:* Calls `a.construct(p, std::forward<Args>(args)...)` if
-     that call is well-formed; otherwise, invokes `::new (static_cast<void*>(p))
-     T(std::forward<Args>(args)...)`.</li>
+<li> *Effects:* Calls <code highlight=""> a.construct(p,
+     std::forward<Args>(args)...)</code> if that call is well-formed; otherwise,
+     invokes <code highlight="">::new (static_cast<void*>(p))
+     T(std::forward<Args>(args)...)</code>.</li>
 
 </ol>
 <ins>
-<pre>
-  template<class T, class... Args>
+<pre highlight="">
+  template&lt;class T, class... Args&gt;
     static void implicit_construct(Alloc& a, T* p);
 </pre>
 
 <ol start="6">
 
-<li> *Effects:* Calls `a.implicit_construct(p)` if that call is well-formed;
-     otherwise, does nothing if T is an *implicit lifetime* type and
-     `a.construct(p)` is *not* well formed; otherwise, does not participate in
-     overload resolution.</li>
+<li> *Effects:* Calls <code highlight="">a.implicit_construct(p)</code> if that
+     call is well-formed; otherwise, does nothing if <code highlight="">T</code>
+     is an *implicit lifetime* type and <code highlight="">a.construct(p)</code>
+     is *not* well formed; otherwise, does not participate in overload
+     resolution.</li>
 
 </ol>
 </ins>
-<pre>
-  template<class T>
+<pre highlight="">
+  template&lt;class T&gt;
     static void destroy(Alloc& a, T* p);
 </pre>
 <ol start="7">
 
-<li> *Effects:* Calls `a.destroy(p)` if that call is well-formed;
-     otherwise, invokes `p->~T().`</li>
+<li> *Effects:* Calls <code highlight="">a.destroy(p)</code> if that call is
+     well-formed; otherwise, invokes <code highlight="">p->~T().</code></li>
 
 </ol>
 </blockquote>
@@ -565,9 +574,9 @@ In [**allocator.traits.members**] insert a new p6:
 In [**vector.overview**] add the declaration for `insert_from_capacity`:
 
 <blockquote>
-<pre>
+<pre highlight="">
 namespace std {
-  template<class T, class Allocator = allocator<T>>
+  template&lt;class T, class Allocator = allocator&lt;T&gt;&gt;
   class vector {
 
     ...
@@ -578,17 +587,18 @@ namespace std {
     <ins>T* uninitialized_data() noexcept;</ins>
 
     <em>// 26.3.11.5, modifiers</em>
-    template<class... Args> reference emplace_back(Args&&... args); void push_back(const T& x);
+    template&lt;class... Args&gt; reference emplace_back(Args&&... args);
+    void push_back(const T& x);
     void push_back(T&& x);
     void pop_back();
 
-    template<class... Args> iterator emplace(const_iterator position, Args&&... args);
+    template&lt;class... Args&gt; iterator emplace(const_iterator position, Args&&... args);
     iterator insert(const_iterator position, const T& x);
     iterator insert(const_iterator position, T&& x);
     iterator insert(const_iterator position, size_type n, const T& x);
-    template<class InputIterator>
+    template&lt;class InputIterator&gt;
       iterator insert(const_iterator position, InputIterator first, InputIterator last);
-    iterator insert(const_iterator position, initializer_list<T> il);
+    iterator insert(const_iterator position, initializer_list&lt;T&gt; il);
     <ins>iterator insert_from_capacity(size_type n);</ins>
     iterator erase(const_iterator position);
     iterator erase(const_iterator first, const_iterator last);
@@ -597,36 +607,40 @@ namespace std {
 </pre>
 </blockquote>
 
-In [**vector.data**]:
+In [**vector.data**] add new p3-5:
 
 <blockquote>
-<pre>
+<pre highlight="">
 T*         data() noexcept;
 const T*   data() const noexcept;
 </pre>
 <ol>
 
-<li> <em>Returns:</em> A pointer such that `[data(), data() + size())` is a
-     valid range. For a non-empty vector, `data() == addressof(front())`. </li>
+<li> <em>Returns:</em> A pointer such that <code highlight="">[data(), data() +
+     size())</code> is a valid range. For a non-empty vector, <code
+     highlight=""> data() == addressof(front())</code>. </li>
 
 <li> <em>Complexity:</em> Constant time. </li>
 </ol>
 <ins>
-<pre>
+<pre highlight="">
 T*         uninitialized_data() noexcept;
 </pre>
 <ol start="3">
 
 <li> <em>Returns:</em> A pointer to uninitialized storage that would hold
-     elements in the range `[size(), capacity())`. [<em>Note:</em> This storage
-     may be initialized through a pointer obtained by casting `T*` to `void*`
-     and then to `char*`, `unsigned char*`, or `std::byte*`.
+     elements in the range <code highlight="">[size(), capacity())</code>.
+     [<em>Note:</em> This storage may be initialized through a pointer obtained
+     by casting <code highlight="">T*</code> to <code highlight="">void*</code>
+     and then to <code highlight="">char*</code>, <code highlight="">unsigned
+     char*</code>, or <code highlight="">std::byte*</code>.
      ([**basic.life**]p6.4). - <em>end note</em>] </li>
 
 
 <li> <em>Remarks:</em> This member function does not participate in overload
-     resolution if `allocator_traits<Allocator>::implicit_construct(Element *)`
-     is not well formed. </li>
+     resolution if <code highlight="">
+     allocator_traits<Allocator>::implicit_construct(Element *) </code> is not
+     well formed. </li>
 
 <li> <em>Complexity:</em> Constant time. </li>
 
@@ -634,7 +648,7 @@ T*         uninitialized_data() noexcept;
 </ins>
 </blockquote>
 
-In [**vector.modifiers**]
+In [**vector.modifiers**] add new p3-6:
 
 <blockquote>
 <ol start="2">
@@ -644,22 +658,23 @@ In [**vector.modifiers**]
 
 </ol>
 <ins>
-<pre>
+<pre highlight="">
 iterator insert_from_capacity(size_type n);
 </pre>
 <ol start="3">
 
-<li> <em>Requires:</em> - `n <= capacity() - size()`. </li>
+<li> <em>Requires:</em> - <code highlight="">n <= capacity() - size()</code>.
+     </li>
 
 <li> <em>Remarks:</em> - Appends <code>n</code> elements by implicitly creating
      them from capacity. The application must have initialized the storage
      backing these elements otherwise the behavior is undefined. This member
-     function does not participate in overload resolution if
-     `allocator_traits<Allocator>::implicit_construct(Element *)` is not well
-     formed. </li>
+     function does not participate in overload resolution if <code highlight="">
+     allocator_traits<Allocator>::implicit_construct(Element *)</code> is not
+     well formed. </li>
 
 <li> <em>Returns:</em> - an iterator to the first element inserted, otherwise
-     `end()`. </li>
+     <code highlight="">end()</code>. </li>
 
 <li> <em>Complexity:</em> - The complexity is linear in the number of elements
      inserted. </li>
@@ -667,7 +682,7 @@ iterator insert_from_capacity(size_type n);
 </ol>
 </ins>
 
-<pre>
+<pre highlight="">
 iterator erase(const_iterator position);
 iterator erase(const_iterator first, const_iterator last);
 void pop_back();
