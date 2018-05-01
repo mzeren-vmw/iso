@@ -69,7 +69,7 @@ Starting with [**allocator.requirements**] (Table 31), we add:
 <ul>
 
 <li> `a.implicit_construct(c)` - This expression informs the allocator *post
-     facto* of an implicit lifetime object that has been initialized and
+     facto* of an object of implicit lifetime type that has been initialized and
      implicitly created by the application. This member function, if provided,
      does not participate in overload resolution unless `C` is an implicit
      lifetime type. By default it does nothing.
@@ -93,9 +93,9 @@ Then in [**allocator.traits**] we add:
 
      </ul>
 
-     (The intent is to leave the meaning of allocators which define `construct`
-     unchanged, but to allow those that don't, including the default allocator,
-     to support `implicit_construct` implicitly.)
+     (The intent is to leave the meaning of allocators which define
+     `construct(T*)` unchanged, but to allow those that don't, including the
+     default allocator, to support `implicit_construct` implicitly.)
 
 </li>
 </ul>
@@ -108,8 +108,8 @@ With allocator support in place, we add the following two member functions in
 <li> <code>T* uninitialized_data()</code> - Returns a pointer to storage that
      would back elements [<code>size()</code>, <code>capacity()</code>). Note
      that this storage may contain indeterminate values ([**dcl.init**]p12). The
-     application may initialize the memory by casting `T*` to `void` and then to
-     `char`, `unsigned char`, or `std::byte`. ([**basic.life**]p6.4).
+     application may initialize the memory by casting to `void*` and then to
+     `char*`, `unsigned char*`, or `std::byte*`. ([**basic.life**]p6.4).
 
      Does not participate in overload resolution if
      `allocator_traits<Allocator>::implicit_construct(Element *)` is not well
