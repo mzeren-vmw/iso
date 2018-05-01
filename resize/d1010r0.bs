@@ -242,8 +242,12 @@ void AppendPattern(IntVec& out, span<const int> pattern, unsigned count)
 </xmp>
 </ol>
 
-Implementation Experience {#experience}
-==============
+Related work {#related}
+============
+
+As mentioned above, all related work to date has used default initialization.
+This is the first proposal that the larger set of implicit lifetime types as
+defined in [[P0593R2]].
 
 Google <code>basic_string</code> {#google}
 ------
@@ -325,15 +329,17 @@ basic_string::resize_uninitialized (or a similar mechanism)":</br> <a
 href="https://groups.google.com/a/isocpp.org/forum/#!topic/std-proposals/XIO4KbBTxl0">
 https://groups.google.com/a/isocpp.org/forum/#!topic/std-proposals/XIO4KbBTxl0</a>
 
+P1020R0
+-------
+See also [[P1020R0]] "Smart pointer creation functions for default initialization".
+
 
 Open Issues {#issues}
 ===========
 
 <ul>
 
-<li> Glen Fernandes is working on a proposal to add default initialized
-     `make_unique`/`make_shared`, etc. We should reference that paper when a
-     number becomes available.
+<li> Include a discussion of free pointer approach as in p0653r2.
 
 <li> Chris is working on the `basic_string` proposal. We need to get a number
      for that and reference it here.
@@ -714,6 +720,12 @@ and allocator interactions.
         "title": "Working Draft, Standard for Programming Language C++",
         "editor": "Richard Smith",
         "date": "2 April 2018"
+    },
+    "p1020r0": {
+        "href": "https://wg21.link/P4741R0",
+        "title": "Smart pointer creation functions for default initialization",
+        "authors": ["Glen Fernandes"],
+        "date": "May 2018"
     }
 }
 </pre>
