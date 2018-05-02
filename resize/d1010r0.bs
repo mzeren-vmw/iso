@@ -83,11 +83,11 @@ Then in [**allocator.traits**] we add:
 <li> `implicit_construct(Alloc& a, T* p)` - This member function:
      <ul>
 
-     <li> Calls `a.implicit_construct(p)` if it is well formed, otherwise ...
+     <li> Calls `a.implicit_construct(p)` if it is well-formed, otherwise ...
           </li>
 
      <li> Does nothing if T is an implicit lifetime type and `a.construct(p)` is
-          *not* well formed, otherwise ... </li>
+          *not* well-formed, otherwise ... </li>
 
      <li> Does not participate in overload resolution.</li>
 
@@ -112,16 +112,16 @@ With allocator support in place, we add the following two member functions in
      `char*`, `unsigned char*`, or `std::byte*`. ([**basic.life**]p6.4).
 
      Does not participate in overload resolution if
-     `allocator_traits<Allocator>::implicit_construct(Element *)` is not well
-     formed.
+     `allocator_traits<Allocator>::implicit_construct(Element *)` is not
+     well-formed.
 
 <li> <code>insert_from_capacity(size_type n)</code> - Appends <code>n</code>
      elements from capacity. The application must have initialized the storage
      backing these elements otherwise the behavior is undefined.
 
      Does not participate in overload resolution if
-     `allocator_traits<Allocator>::implicit_construct(Element *)` is not well
-     formed. </li>
+     `allocator_traits<Allocator>::implicit_construct(Element *)` is not
+     well-formed. </li>
 
 </ul>
 
@@ -339,7 +339,11 @@ Open Issues {#issues}
 
 <ul>
 
-<li> Include a discussion of free pointer approach as in p0653r2.
+<li> Include a discussion of free function instead of modifying allocator_traits
+     as in p0653r2.
+
+<li> Include a discussion of the tradeoffs between types implicit lifetime and
+     default initialization.
 
 <li> Chris is working on the `basic_string` proposal. We need to get a number
      for that and reference it here.
@@ -559,7 +563,7 @@ In [**allocator.traits.members**] insert a new p6:
 <li> *Effects:* Calls <code highlight="">a.implicit_construct(p)</code> if that
      call is well-formed; otherwise, does nothing if <code highlight="">T</code>
      is an *implicit lifetime* type and <code highlight="">a.construct(p)</code>
-     is *not* well formed; otherwise, does not participate in overload
+     is *not* well-formed; otherwise, does not participate in overload
      resolution.</li>
 
 </ol>
@@ -649,7 +653,7 @@ T*         uninitialized_data() noexcept;
 <li> *Remarks:* This member function does not participate in overload resolution
      if <code highlight="">
      allocator_traits<Allocator>::implicit_construct(Element *) </code> is not
-     well formed. </li>
+     well-formed. </li>
 
 <li> *Complexity:* Constant time. </li>
 
@@ -680,7 +684,7 @@ iterator insert_from_capacity(size_type n);
      these elements otherwise the behavior is undefined. This member function
      does not participate in overload resolution if <code highlight="">
      allocator_traits<Allocator>::implicit_construct(Element *)</code> is not
-     well formed. </li>
+     well-formed. </li>
 
 <li> *Returns:* - an iterator to the first element inserted, otherwise <code
      highlight="">end()</code>. </li>
@@ -710,8 +714,8 @@ void pop_back();
 Acknowledgments {#acknowledgments}
 ================
 
-**Agustín Bergé** and **Arthur O'Dwyer** provided guidance on object lifetime
-and allocator interactions.
+**Agustín Bergé**, **Arthur O'Dwyer**, and **Glen Fernandes** provided guidance
+on object lifetime and allocator interactions.
 
 <pre class=biblio>
 {
@@ -724,7 +728,7 @@ and allocator interactions.
     "p1020r0": {
         "href": "https://wg21.link/P4741R0",
         "title": "Smart pointer creation functions for default initialization",
-        "authors": ["Glen Fernandes"],
+        "authors": ["Glen Fernandes", "Peter Dimov"],
         "date": "May 2018"
     }
 }
