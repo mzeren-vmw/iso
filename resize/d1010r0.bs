@@ -18,8 +18,15 @@ Abstract: Extend allocators, <code>allocator_traits</code>, and
 
 </pre>
 
-<blockquote>... there is a family of types for which programmers assume they do
-not need to explicitly create objects ... [[P0593R2]] </blockquote>
+<hr/>
+
+<blockquote>
+... there is a family of types for which programmers <br/>
+assume they do not need to explicitly create objects ... <br/>
+</blockquote>
+[[P0593R2]]
+
+<hr/>
 
 Summary {#summary}
 =======
@@ -46,9 +53,14 @@ optimizations for allocator aware containers, and extends `vector` to allow
 them. Prior work in this area has relied on trivial default construction.
 However, [[P0593R2]] allows class types with *non-trivial* default constructors
 that have trivial move or copy constructors to be implicit lifetime types. This
-proposal includes this broader set of types.
+proposal includes this broader set of types. Default construction typically
+leaves indeterminate values in elements of the `vector`, exposing the container
+to undefined behavior until the application initializes all such elements. This
+proposal avoids this "trap" state for the container by not incorporating
+elements into the container until they have been initialized.
 
-We will propose similar changes to `basic_string` in a separate paper.
+We will propose similar changes to `basic_string` in a separate paper
+[[P1072R0]].
 
 
 Approach {#approach}
@@ -200,7 +212,7 @@ void AppendPattern(IntVec& out, span<const int> pattern, unsigned count)
   for (auto cur = out.begin() + start;
        cur < out.end(); cur += step) {
     memcpy(&*cur, pattern.data(),      // GOOD: No bookkeeping.
-           step * sizeof(int)));       // BAD: UB for class types.
+           step * sizeof(int)));
   }
 }
 </xmp>
@@ -235,12 +247,13 @@ void AppendPattern(IntVec& out, span<const int> pattern, unsigned count)
   int* end = cur + total;
   for (;cur < end; cur += step) {
     memcpy(cur, pattern.data(),        // GOOD: No bookkeeping.
-           step * sizeof(int)));       // GOOD: No UB.
+           step * sizeof(int)));
   }
   out.insert_from_capacity(total);     // GOOD: No-op.
 }
 </xmp>
 </ol>
+
 
 Related work {#related}
 ============
@@ -248,6 +261,7 @@ Related work {#related}
 As mentioned above, all related work to date has used default initialization.
 This is the first proposal that the larger set of implicit lifetime types as
 defined in [[P0593R2]].
+
 
 Google <code>basic_string</code> {#google}
 ------
@@ -274,6 +288,7 @@ Tensor Flow does too:</br>
 <a href="https://github.com/tensorflow/tensorflow/search?q=STLStringResizeUninitialized">
 https://github.com/tensorflow/tensorflow/search?q=STLStringResizeUninitialized</a>
 
+
 Boost containers {#boost}
 -----
 
@@ -289,7 +304,7 @@ Added benchmark for associative containers
 Fixes #9166
 </pre></blockquote>
 
-E.g.<a
+E.g.: <a
 href="https://github.com/boostorg/container/blob/develop/include/boost/container/vector.hpp">
 boost/container/vector.hpp</a>:
 
@@ -314,12 +329,49 @@ These optimizations are also supported in Boost Container's `small_vector`,
 `static_vector`, `deque`, `stable_vector`, and `string`.
 
 
+MongoDB
+-------
+
+MongoDB has a string builder that could have been implemented in terms of
+`basic_string` as a return value. However, as explained by Mathias Stearn, zero
+initizliation was measured and was too costly. Instead a custom string builder
+type is used:
+
+E.g.: <a
+href="https://github.com/mongodb/mongo/blob/67da083face9dabdf95a5ffb72d3da675269b4c7/src/mongo/db/fts/unicode/string.h#L128-L143">
+https://github.com/mongodb/mongo/blob/master/src/mongo/db/fts/unicode/string.h
+</a>
+
+<xmp>
+/**
+ * Strips diacritics and case-folds the utf8 input string, as needed to support
+ * options.
+ *
+ * The options field specifies what operations to *skip*, so kCaseSensitive
+ * means to skip case folding and kDiacriticSensitive means to skip diacritic
+ * striping. If both flags are specified, the input utf8 StringData is returned
+ * directly without any processing or copying.
+ *
+ * If processing is performed, the returned StringData will be placed in buffer.
+ * buffer's contents (if any) will be replaced. Since we may return the input
+ * unmodified the returned StringData's lifetime is the shorter of the input
+ * utf8 and the next modification to buffer. The input utf8 must not point into
+ * buffer.
+ */
+static StringData caseFoldAndStripDiacritics(StackBufBuilder* buffer,
+                                             StringData utf8,
+                                             SubstrMatchOptions options,
+                                             CaseFoldMode mode);
+</xmp>
+(Comments re-wrapped.)
+
 VMware string builders {#vmware}
 ------
 
 VMware has an internal string builder implementation that avoids
 <code>std::string</code> due, in part, to <code>reserve</code>'s zero-writing
-behavior.
+behavior. This is similar in spirit to the MongoDB example above.
+
 
 Discussion on std-proposals {#std-proposals}
 ---------------------------
@@ -339,14 +391,11 @@ Open Issues {#issues}
 
 <ul>
 
-<li> Include a discussion of free function instead of modifying allocator_traits
-     as in p0653r2.
-
 <li> Include a discussion of the tradeoffs between types implicit lifetime and
      default initialization.
 
-<li> Chris is working on the `basic_string` proposal. We need to get a number
-     for that and reference it here.
+<li> Include a discussion of using a free function instead of modifying
+     allocator_traits as in p0653r2.
 
 <li> **Q:** Can `implicit_construct` throw?
 
@@ -356,12 +405,7 @@ Open Issues {#issues}
      like the other "inserts", or should it return `vector&` like
      `basic_string::append`? Should `vector` have `append`??
 
-     **A:** ??? </li>
-
-<li> **Q:** In pattern stamping example it *is* UB to memcpy into constructed
-     objects, right?
-
-     **A:** ??
+     **A:** Depends on the name. See bike-shedding below. </li>
 
 </ul>
 
@@ -386,7 +430,7 @@ What name and return type should we use?
 <tr>
 <td>`vector&`</td>
 <td>`append_from_capacity(n)`</td>
-<td>like `basic_string::append`</td>
+<td>like `basic_string::append`. `vector` does not have `append`.</td>
 </tr>
 
 <tr>
@@ -404,8 +448,8 @@ What name and return type should we use?
 
 <tr>
 <td>`void`</td>
-<td>`extend(n)`</td>
-<td>new terminology</td>
+<td>`extend(n)`, `grow(n)`, etc.</td>
+<td>some new term...</td>
 </tr>
 
 </table>
@@ -726,9 +770,15 @@ on object lifetime and allocator interactions.
         "date": "2 April 2018"
     },
     "p1020r0": {
-        "href": "https://wg21.link/P4741R0",
+        "href": "https://wg21.link/P1020R0",
         "title": "Smart pointer creation functions for default initialization",
         "authors": ["Glen Fernandes", "Peter Dimov"],
+        "date": "May 2018"
+    },
+    "p1072r0": {
+        "href": "https://wg21.link/P1071R0",
+        "title": "Avoiding zero init overhead in basic_string",
+        "authors": ["Chris Kennelly", "Mark Zeren"],
         "date": "May 2018"
     }
 }
