@@ -759,7 +759,8 @@ Acknowledgments {#acknowledgments}
 ================
 
 **Agustín Bergé**, **Arthur O'Dwyer**, and **Glen Fernandes** provided guidance
-on object lifetime and allocator interactions.
+on object lifetime and allocator interactions. Thanks also for early comments
+from **Nevin Liber** and **Mathias Stern**.
 
 <pre class=biblio>
 {
