@@ -188,6 +188,9 @@ unsigned ReadSome(ByteVec* out, Socket& socket)
 }
 </xmp>
 
+Note: `reserve` bypasses `vector`'s normal growth algorithm which can
+lead to unnecessary allocations. Resolving that issue is out of scope for
+this proposal.
 
 Example: stamping a pattern
 ---------------------------
@@ -396,6 +399,11 @@ Open Issues {#issues}
 
 <li> Include a discussion of using a free function instead of modifying
      allocator_traits as in p0653r2.
+
+<li> Include a disscussion of allowing the application to construct directly vs.
+     requireing implicit creation. Or, at least remove "does not participate in
+     overload resolution to allow implementations to provide this as an
+     extension. </li>
 
 <li> **Q:** Can `implicit_construct` throw?
 
