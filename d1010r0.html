@@ -1191,7 +1191,7 @@ Possible extra rowspan handling
       text-align: center;
     }
   </style>
-  <meta content="Bikeshed version eef4acd901f774f3d130c245844f8ea23319c1b2" name="generator">
+  <meta content="Bikeshed version 374411ba509d23f8a91b3530bae1f342eb291098" name="generator">
   <link href="http://wg21.link/D1010R0" rel="canonical">
 <style>/* style-md-lists */
 
@@ -1451,20 +1451,27 @@ pre .property::before, pre .property::after {
       <li><a href="#std-proposals"><span class="secno">3.5</span> <span class="content">Discussion on std-proposals</span></a>
       <li><a href="#p1020r0"><span class="secno">3.6</span> <span class="content">P1020R0</span></a>
      </ol>
-    <li><a href="#issues"><span class="secno">4</span> <span class="content">Open Issues</span></a>
     <li>
-     <a href="#bikeshed"><span class="secno">5</span> <span class="content">Bike-shedding</span></a>
+     <a href="#alternatives"><span class="secno">4</span> <span class="content">Alternatives Considered</span></a>
      <ol class="toc">
-      <li><a href="#insert_from_capacity"><span class="secno">5.1</span> <span class="content"><code class="highlight"><span class="n">insert_from_capacity</span></code></span></a>
+      <li><a href="#free"><span class="secno">4.1</span> <span class="content">Free function instead of modifying <code class="highlight"><span class="n">allocator_traits</span></code></span></a>
+     </ol>
+    <li><a href="#issues"><span class="secno">5</span> <span class="content">Open Issues</span></a>
+    <li>
+     <a href="#bikeshed"><span class="secno">6</span> <span class="content">Bike-shedding</span></a>
+     <ol class="toc">
+      <li><a href="#insert_from_capacity"><span class="secno">6.1</span> <span class="content"><code class="highlight"><span class="n">insert_from_capacity</span></code></span></a>
+      <li><a href="#implicit_construct"><span class="secno">6.2</span> <span class="content"><code class="highlight"><span class="n">implicit_construct</span></code></span></a>
      </ol>
     <li>
-     <a href="#wording"><span class="secno">6</span> <span class="content">Wording</span></a>
+     <a href="#wording"><span class="secno">7</span> <span class="content">Wording</span></a>
      <ol class="toc">
-      <li><a href="#requirements"><span class="secno">6.1</span> <span class="content">[<strong>allocator.requirements</strong>]</span></a>
-      <li><a href="#traits"><span class="secno">6.2</span> <span class="content">[<strong>allocator.traits</strong>]</span></a>
-      <li><a href="#vector"><span class="secno">6.3</span> <span class="content">[<strong>vector</strong>]</span></a>
+      <li><a href="#requirements"><span class="secno">7.1</span> <span class="content">[<strong>allocator.requirements</strong>]</span></a>
+      <li><a href="#traits"><span class="secno">7.2</span> <span class="content">[<strong>allocator.traits</strong>]</span></a>
+      <li><a href="#general"><span class="secno">7.3</span> <span class="content">[<strong>container.requirements.general</strong>]</span></a>
+      <li><a href="#vector"><span class="secno">7.4</span> <span class="content">[<strong>vector</strong>]</span></a>
      </ol>
-    <li><a href="#acknowledgments"><span class="secno">7</span> <span class="content">Acknowledgments</span></a>
+    <li><a href="#acknowledgments"><span class="secno">8</span> <span class="content">Acknowledgments</span></a>
     <li>
      <a href="#references"><span class="secno"></span> <span class="content">References</span></a>
      <ol class="toc">
@@ -1499,7 +1506,7 @@ leaves indeterminate values in elements of the <code class="highlight"><span cla
 to undefined behavior until the application initializes all such elements. This
 proposal avoids this "trap" state for the container by not incorporating
 elements into the container until they have been initialized.</p>
-   <p>We will propose similar changes to <code class="highlight"><span class="n">basic_string</span></code> in a separate paper <a data-link-type="biblio" href="#biblio-p1072r0">[P1072R0]</a>.</p>
+   <p>We will propose related changes to <code class="highlight"><span class="n">basic_string</span></code> in a separate paper <a data-link-type="biblio" href="#biblio-p1072r0">[P1072R0]</a>.</p>
    <h3 class="heading settled" data-level="1.1" id="approach"><span class="secno">1.1. </span><span class="content">Approach</span><a class="self-link" href="#approach"></a></h3>
    <p>Allocator aware containers must cooperate with their allocator for object
 construction and destruction. Working with the broader set of implicit lifetime
@@ -1537,14 +1544,13 @@ objects.</p>
      would back elements [<code class="highlight"><span class="n">size</span><span class="p">()</span></code>, <code class="highlight"><span class="n">capacity</span><span class="p">()</span></code>). Note
      that this storage may contain indeterminate values ([<strong>dcl.init</strong>]p12). The
      application may initialize the memory by casting to <code class="highlight"><span class="kt">void</span><span class="o">*</span></code> and then to <code class="highlight"><span class="kt">char</span><span class="o">*</span></code>, <code class="highlight"><span class="kt">unsigned</span> <span class="kt">char</span><span class="o">*</span></code>, or <code class="highlight"><span class="n">std</span><span class="o">::</span><span class="n">byte</span><span class="o">*</span></code>. ([<strong>basic.life</strong>]p6.4). 
-     <p>Does not participate in overload resolution if <code class="highlight"><span class="n">allocator_traits</span><span class="o">&lt;</span><span class="n">Allocator</span><span class="o">>::</span><span class="n">implicit_construct</span><span class="p">(</span><span class="n">Element</span> <span class="o">*</span><span class="p">)</span></code> is not
-     well-formed.</p>
+     <p>Does not participate in overload resolution if <code class="highlight"><span class="n">allocator_traits</span><span class="o">&lt;</span><span class="n">Allocator</span><span class="o">>::</span><span class="n">rebind_traits</span><span class="o">&lt;</span><span class="n">U</span><span class="o">>::</span><span class="n">implicit_construct</span><span class="p">(</span><span class="n">U</span> <span class="o">*</span><span class="p">)</span></code> is
+     not well-formed.</p>
     <li>
       <code class="highlight"><span class="n">insert_from_capacity</span><span class="p">(</span><span class="n">size_type</span> <span class="n">n</span><span class="p">)</span></code> - Appends <code class="highlight"><span class="n">n</span></code> elements from capacity. The application must have initialized the storage
      backing these elements otherwise the behavior is undefined. 
-     <p>Does not participate in overload resolution if <code class="highlight"><span class="n">allocator_traits</span><span class="o">&lt;</span><span class="n">Allocator</span><span class="o">>::</span><span class="n">implicit_construct</span><span class="p">(</span><span class="n">Element</span> <span class="o">*</span><span class="p">)</span></code> is not
-     well-formed. </p>
-    <p></p>
+     <p>Does not participate in overload resolution if <code class="highlight"><span class="n">allocator_traits</span><span class="o">&lt;</span><span class="n">Allocator</span><span class="o">>::</span><span class="n">rebind_traits</span><span class="o">&lt;</span><span class="n">U</span><span class="o">>::</span><span class="n">implicit_construct</span><span class="p">(</span><span class="n">U</span> <span class="o">*</span><span class="p">)</span></code> is
+     not well-formed.</p>
    </ul>
    <h2 class="heading settled" data-level="2" id="motivation"><span class="secno">2. </span><span class="content">Motivating examples</span><a class="self-link" href="#motivation"></a></h2>
    <p>The extra overhead described in the examples below is often small, yet the
@@ -1582,6 +1588,9 @@ as:</p>
 <span class="c1"></span>  <span class="k">return</span> <span class="n">size</span><span class="p">;</span>
 <span class="p">}</span>
 </pre>
+   <p class="note" role="note"><span>Note:</span> <code class="highlight"><span class="n">reserve</span></code> bypasses <code class="highlight"><span class="n">vector</span></code>'s normal growth algorithm which can
+lead to unnecessary allocations. Resolving that issue is out of scope for
+this proposal.</p>
    <h3 class="heading settled" data-level="2.2" id="example-stamping-a-pattern"><span class="secno">2.2. </span><span class="content">Example: stamping a pattern</span><a class="self-link" href="#example-stamping-a-pattern"></a></h3>
    <p>For a second example, consider stamping a repeating pattern of elements. <code class="highlight"><span class="n">vector</span></code>'s interface offers two options, neither optimal:</p>
    <ol>
@@ -1706,12 +1715,28 @@ behavior. This is similar in spirit to the MongoDB example above.</p>
 basic_string::resize_uninitialized (or a similar mechanism)":<br> <a href="https://groups.google.com/a/isocpp.org/forum/#!topic/std-proposals/XIO4KbBTxl0"> https://groups.google.com/a/isocpp.org/forum/#!topic/std-proposals/XIO4KbBTxl0</a></p>
    <h3 class="heading settled" data-level="3.6" id="p1020r0"><span class="secno">3.6. </span><span class="content">P1020R0</span><a class="self-link" href="#p1020r0"></a></h3>
     See also <a data-link-type="biblio" href="#biblio-p1020r0">[P1020R0]</a> "Smart pointer creation functions for default initialization". 
-   <h2 class="heading settled" data-level="4" id="issues"><span class="secno">4. </span><span class="content">Open Issues</span><a class="self-link" href="#issues"></a></h2>
+   <h2 class="heading settled" data-level="4" id="alternatives"><span class="secno">4. </span><span class="content">Alternatives Considered</span><a class="self-link" href="#alternatives"></a></h2>
+   <h3 class="heading settled" data-level="4.1" id="free"><span class="secno">4.1. </span><span class="content">Free function instead of modifying <code class="highlight"><span class="n">allocator_traits</span></code></span><a class="self-link" href="#free"></a></h3>
+   <p>This proposal adds a member to <code class="highlight"><span class="n">std</span><span class="o">::</span><span class="n">allocator_traits</span></code>. Such a change risks
+breaking user specializations of <code class="highlight"><span class="n">std</span><span class="o">::</span><span class="n">allocator_traits</span></code>. For example, the
+authors of <a data-link-type="biblio" href="#biblio-p0653r2">[P0653R2]</a> avoided a similar edit to <code class="highlight"><span class="n">std</span><span class="o">::</span><span class="n">pointer_traits</span></code> by
+creating a free function. We could define <code class="highlight"><span class="n">std</span><span class="o">::</span><span class="n">implicit_construct</span></code> as a free
+function. However this may not be necessary because:</p>
    <ul>
-    <li> Include a discussion of the tradeoffs between types implicit lifetime and
+    <li> <code class="highlight"><span class="n">implicit_construct</span></code> is defined as an optional member of <code class="highlight"><span class="n">allocator_traits</span></code> and containers must test for its well-formedness for each <code class="highlight"><span class="p">(</span><span class="n">Alloc</span><span class="p">,</span> <span class="n">U</span><span class="p">)</span></code>. 
+    <li> While the standard explicitly allows user specialization of <code class="highlight"><span class="n">allocator_traits</span></code> this class is designed to provide uniform operations
+     over user "specialized" allocators. By allowing users to specialize <code class="highlight"><span class="n">allocator_traits</span></code> are we giving users more customization points than they
+     need? Should <code class="highlight"><span class="n">allocator_traits</span></code> have been named <code class="highlight"><span class="n">allocator_adapter</span></code> or <code class="highlight"><span class="n">allocator_interface</span></code>? Should we discourage or deprecate user
+     specialization? 
+   </ul>
+   <h2 class="heading settled" data-level="5" id="issues"><span class="secno">5. </span><span class="content">Open Issues</span><a class="self-link" href="#issues"></a></h2>
+   <ul>
+    <li> Include a discussion of the tradeoffs between implicit lifetime types and
      default initialization. 
-    <li> Include a discussion of using a free function instead of modifying
-     allocator_traits as in p0653r2. 
+    <li> Include a disscussion of allowing the application to construct directly vs.
+     requireing implicit creation. Or, at least remove "does not participate in
+     overload resolution to allow implementations to provide this as an
+     extension. 
     <li>
       <strong>Q:</strong> Can <code class="highlight"><span class="n">implicit_construct</span></code> throw? 
      <p><strong>A:</strong> Yes.</p>
@@ -1722,8 +1747,8 @@ basic_string::resize_uninitialized (or a similar mechanism)":<br> <a href="https
      <p><strong>A:</strong> Depends on the name. See bike-shedding below. </p>
     <p></p>
    </ul>
-   <h2 class="heading settled" data-level="5" id="bikeshed"><span class="secno">5. </span><span class="content">Bike-shedding</span><a class="self-link" href="#bikeshed"></a></h2>
-   <h3 class="heading settled" data-level="5.1" id="insert_from_capacity"><span class="secno">5.1. </span><span class="content"><code class="highlight"><span class="n">insert_from_capacity</span></code></span><a class="self-link" href="#insert_from_capacity"></a></h3>
+   <h2 class="heading settled" data-level="6" id="bikeshed"><span class="secno">6. </span><span class="content">Bike-shedding</span><a class="self-link" href="#bikeshed"></a></h2>
+   <h3 class="heading settled" data-level="6.1" id="insert_from_capacity"><span class="secno">6.1. </span><span class="content"><code class="highlight"><span class="n">insert_from_capacity</span></code></span><a class="self-link" href="#insert_from_capacity"></a></h3>
     What name and return type should we use? <br>  
    <table>
     <tbody>
@@ -1754,8 +1779,26 @@ basic_string::resize_uninitialized (or a similar mechanism)":<br> <a href="https
       <td><code class="highlight"><span class="n">extend</span><span class="p">(</span><span class="n">n</span><span class="p">)</span></code>, <code class="highlight"><span class="n">grow</span><span class="p">(</span><span class="n">n</span><span class="p">)</span></code>, etc.
       <td>some new term...
    </table>
-   <h2 class="heading settled" data-level="6" id="wording"><span class="secno">6. </span><span class="content">Wording</span><a class="self-link" href="#wording"></a></h2>
-   <h3 class="heading settled" data-level="6.1" id="requirements"><span class="secno">6.1. </span><span class="content">[<strong>allocator.requirements</strong>]</span><a class="self-link" href="#requirements"></a></h3>
+   <h3 class="heading settled" data-level="6.2" id="implicit_construct"><span class="secno">6.2. </span><span class="content"><code class="highlight"><span class="n">implicit_construct</span></code></span><a class="self-link" href="#implicit_construct"></a></h3>
+    What name should we use? <br>  
+   <table>
+    <tbody>
+     <tr>
+      <th>Return type
+      <th>Name
+      <th>Comments
+     <tr>
+     <tr>
+      <td><code class="highlight"><span class="kt">void</span></code>
+      <td><code class="highlight"><span class="n">implicit_construct</span><span class="p">(</span><span class="n">T</span> <span class="o">*</span><span class="p">)</span></code>
+      <td>as proposed
+     <tr>
+      <td><code class="highlight"><span class="kt">void</span></code>
+      <td><code class="highlight"><span class="n">bless</span><span class="p">(</span><span class="n">T</span> <span class="o">*</span><span class="p">)</span></code>
+      <td>From <a data-link-type="biblio" href="#biblio-p0593r2">[P0593R2]</a>.
+   </table>
+   <h2 class="heading settled" data-level="7" id="wording"><span class="secno">7. </span><span class="content">Wording</span><a class="self-link" href="#wording"></a></h2>
+   <h3 class="heading settled" data-level="7.1" id="requirements"><span class="secno">7.1. </span><span class="content">[<strong>allocator.requirements</strong>]</span><a class="self-link" href="#requirements"></a></h3>
    <p>In [<strong>allocator.requirements</strong>] Table 31 add the <code class="highlight"><span class="n">a</span><span class="p">.</span><span class="n">implicit_construct</span><span class="p">(</span><span class="n">c</span><span class="p">)</span></code> expression:</p>
    <blockquote>
     <table>
@@ -1803,7 +1846,7 @@ basic_string::resize_uninitialized (or a similar mechanism)":<br> <a href="https
      instantiate. 
     </ol>
    </blockquote>
-   <h3 class="heading settled" data-level="6.2" id="traits"><span class="secno">6.2. </span><span class="content">[<strong>allocator.traits</strong>]</span><a class="self-link" href="#traits"></a></h3>
+   <h3 class="heading settled" data-level="7.2" id="traits"><span class="secno">7.2. </span><span class="content">[<strong>allocator.traits</strong>]</span><a class="self-link" href="#traits"></a></h3>
    <p>In [<strong>allocator.traits</strong>] add the declaration of <code class="highlight"><span class="n">implicit_construct</span></code>.</p>
    <blockquote>
 <pre>namespace std {
@@ -1877,7 +1920,23 @@ basic_string::resize_uninitialized (or a similar mechanism)":<br> <a href="https
      well-formed; otherwise, invokes <code>p->~T().</code>
     </ol>
    </blockquote>
-   <h3 class="heading settled" data-level="6.3" id="vector"><span class="secno">6.3. </span><span class="content">[<strong>vector</strong>]</span><a class="self-link" href="#vector"></a></h3>
+   <h3 class="heading settled" data-level="7.3" id="general"><span class="secno">7.3. </span><span class="content">[<strong>container.requirements.general</strong>]</span><a class="self-link" href="#general"></a></h3>
+   <p>In [<strong>container.requirements.general</strong>]p3 add references to <code class="highlight"><span class="n">implicit_construct</span></code>:</p>
+   <blockquote>
+    <ol start="3">
+     <li>
+       For the components affected by this subclause that declare an <code>allocator_type</code>, objects stored in these components
+     shall be constructed using the function <code> allocator_traits&lt;allocator_type>::rebind_traits&lt;U>::construct </code>
+      <ins> or <code> allocator_traits&lt;allocator_type>::rebind_traits&lt;U>::implicit_construct</code></ins>
+       and destroyed using the function <code> allocator_traits&lt;allocator_type>::rebind_traits&lt;U>::destroy </code> (23.10.9.2), where <code>U</code> is either <code>allocator_type::value_type</code> or an internal type used by
+     the container. These functions are called only for the container’s element
+     type, not for internal types used by the container. [<em>Note:</em> This means,
+     for example, that a node-based container might need to construct nodes
+     containing aligned buffers and call construct to place the element into the
+     buffer. — <em>end note</em> ] 
+    </ol>
+   </blockquote>
+   <h3 class="heading settled" data-level="7.4" id="vector"><span class="secno">7.4. </span><span class="content">[<strong>vector</strong>]</span><a class="self-link" href="#vector"></a></h3>
    <p>In [<strong>vector.overview</strong>] add the declaration for <code class="highlight"><span class="n">insert_from_capacity</span></code>:</p>
    <blockquote>
 <pre>namespace std {
@@ -1927,10 +1986,10 @@ const T*   data() const noexcept;
      <ol start="3">
       <li> <em>Returns:</em> A pointer to uninitialized storage that would hold elements in
      the range <code>[size(), capacity())</code>. [<em>Note:</em> This
-     storage may be initialized through a pointer obtained by casting <code>T*</code> to <code>void*</code> and then to <code>char*</code>, <code>unsigned char*</code>, or <code>std::byte*</code>. ([<strong>basic.life</strong>]p6.4). - <em>end note</em>] 
+     storage may be initialized through a pointer obtained by casting <code>T*</code> to <code>void*</code> and then to <code>char*</code>, <code>unsigned char*</code>, or <code>std::byte*</code>. ([<strong>basic.life</strong>]p6.4). - <em>end note</em> ] 
       <li> <em>Remarks:</em> This member function does not participate in overload resolution
-     if <code> allocator_traits<allocator>::implicit_construct(Element *) </allocator></code> is not
-     well-formed. 
+     if <code> allocator_traits&lt;Allocator>::rebind_traits&lt;U>::implicit_construct(U
+     *) </code> is not well-formed. 
       <li> <em>Complexity:</em> Constant time. 
      </ol>
     </ins>
@@ -1949,12 +2008,12 @@ const T*   data() const noexcept;
       <li> <em>Remarks:</em> - Appends <code class="highlight"><span class="n">n</span></code> elements by implicitly creating them
      from capacity. The application must have initialized the storage backing
      these elements otherwise the behavior is undefined. This member function
-     does not participate in overload resolution if <code> allocator_traits<allocator>::implicit_construct(Element *)</allocator></code> is not
-     well-formed. 
+     does not participate in overload resolution if <code> allocator_traits&lt;Allocator>::rebind_traits&lt;U>::implicit_construct(U
+     *) </code> is not well-formed. 
       <li> <em>Returns:</em> - an iterator to the first element inserted, otherwise <code>end()</code>. 
       <li> <em>Complexity:</em> - The complexity is linear in the number of elements
      inserted. [<em>Note:</em> For some allocators, including the default allocator,
-     actual complexity is constant time. - <em>end note</em>] 
+     actual complexity is constant time. - <em>end note</em> ] 
      </ol>
     </ins>
 <pre>iterator erase(const_iterator position);
@@ -1967,10 +2026,10 @@ void pop_back();
      <li> ... 
     </ol>
    </blockquote>
-   <h2 class="heading settled" data-level="7" id="acknowledgments"><span class="secno">7. </span><span class="content">Acknowledgments</span><a class="self-link" href="#acknowledgments"></a></h2>
+   <h2 class="heading settled" data-level="8" id="acknowledgments"><span class="secno">8. </span><span class="content">Acknowledgments</span><a class="self-link" href="#acknowledgments"></a></h2>
    <p><strong>Agustín Bergé</strong>, <strong>Arthur O’Dwyer</strong>, and <strong>Glen Fernandes</strong> provided guidance
 on object lifetime and allocator interactions. Thanks also for early comments
-from <strong>Nevin Liber</strong> and <strong>Mathias Stern</strong>.</p>
+from <strong>Nevin Liber</strong> and <strong>Mathias Stearn</strong>.</p>
   </main>
 <script>
 (function() {
@@ -2108,8 +2167,10 @@ from <strong>Nevin Liber</strong> and <strong>Mathias Stern</strong>.</p>
    <dd><a href="https://wg21.link/N4741">Working Draft, Standard for Programming Language C++</a>. 2 April 2018. URL: <a href="https://wg21.link/N4741">https://wg21.link/N4741</a>
    <dt id="biblio-p0593r2">[P0593R2]
    <dd>Richard Smith. <a href="https://wg21.link/p0593r2">Implicit creation of objects for low-level object manipulation</a>. URL: <a href="https://wg21.link/p0593r2">https://wg21.link/p0593r2</a>
+   <dt id="biblio-p0653r2">[P0653R2]
+   <dd>Glen Joseph Fernandes. <a href="https://wg21.link/p0653r2">Utility to convert a pointer to a raw pointer</a>. URL: <a href="https://wg21.link/p0653r2">https://wg21.link/p0653r2</a>
    <dt id="biblio-p1020r0">[P1020R0]
-   <dd>Glen Fernandes; Peter Dimov. <a href="https://wg21.link/P1020R0">Smart pointer creation functions for default initialization</a>. May 2018. URL: <a href="https://wg21.link/P1020R0">https://wg21.link/P1020R0</a>
+   <dd>Glen Joseph Fernandes; Peter Dimov. <a href="https://wg21.link/P1020R0">Smart pointer creation functions for default initialization</a>. May 2018. URL: <a href="https://wg21.link/P1020R0">https://wg21.link/P1020R0</a>
    <dt id="biblio-p1072r0">[P1072R0]
-   <dd>Chris Kennelly; Mark Zeren. <a href="https://wg21.link/P1071R0">Avoiding zero init overhead in basic_string</a>. May 2018. URL: <a href="https://wg21.link/P1071R0">https://wg21.link/P1071R0</a>
+   <dd>Chris Kennelly; Mark Zeren. <a href="https://wg21.link/P1071R0">Default Initialization for basic_string</a>. May 2018. URL: <a href="https://wg21.link/P1071R0">https://wg21.link/P1071R0</a>
   </dl>
