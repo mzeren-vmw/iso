@@ -389,16 +389,41 @@ P1020R0
 See also [[P1020R0]] "Smart pointer creation functions for default initialization".
 
 
+Alternatives Considered {#alternatives}
+=======================
+
+Free function instead of modifying `allocator_traits` {#free}
+-----------------------------------------------------
+
+This proposal adds a member to `std::allocator_traits`. Such a change risks
+breaking user specializations of `std::allocator_traits`. For example, the
+authors of [[P0653R2]] avoided a similar edit to `std::pointer_traits` by
+creating a free function. We could define `std::implicit_construct` as a free
+function. However this may not be necessary because:
+
+<ul>
+
+<li> `implicit_construct` is defined as an optional member of `allocator_traits`
+     and containers must test for its well-formedness for each `(Alloc, U)`.
+     </li>
+
+<li> While the standard explicitly allows user specialization of
+     `allocator_traits` this class is designed to provide uniform operations
+     over user "specialized" allocators. By allowing users to specialize
+     `allocator_traits` are we giving users more customization points than they
+     need? Should `allocator_traits` have been named `allocator_adapter` or
+     `allocator_interface`? Should we discourage or deprecate user
+     specialization?
+
+</ul>
+
 Open Issues {#issues}
 ===========
 
 <ul>
 
-<li> Include a discussion of the tradeoffs between types implicit lifetime and
+<li> Include a discussion of the tradeoffs between implicit lifetime types and
      default initialization.
-
-<li> Include a discussion of using a free function instead of modifying
-     allocator_traits as in p0653r2.
 
 <li> Include a disscussion of allowing the application to construct directly vs.
      requireing implicit creation. Or, at least remove "does not participate in
@@ -826,13 +851,12 @@ from **Nevin Liber** and **Mathias Stearn**.
     "n4741": {
         "href": "https://wg21.link/N4741",
         "title": "Working Draft, Standard for Programming Language C++",
-        "editor": "Richard Smith",
         "date": "2 April 2018"
     },
     "p1020r0": {
         "href": "https://wg21.link/P1020R0",
         "title": "Smart pointer creation functions for default initialization",
-        "authors": ["Glen Fernandes", "Peter Dimov"],
+        "authors": ["Glen Joseph Fernandes", "Peter Dimov"],
         "date": "May 2018"
     },
     "p1072r0": {
