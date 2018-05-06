@@ -1454,24 +1454,21 @@ pre .property::before, pre .property::after {
     <li>
      <a href="#alternatives"><span class="secno">4</span> <span class="content">Alternatives Considered</span></a>
      <ol class="toc">
-      <li><a href="#free"><span class="secno">4.1</span> <span class="content">Free function instead of modifying <code class="highlight"><span class="n">allocator_traits</span></code></span></a>
+      <li><a href="#free"><span class="secno">4.1</span> <span class="content">Free function <code class="highlight"><span class="n">std</span><span class="o">::</span><span class="n">implicit_construct</span></code></span></a>
+      <li><a href="#insert_from_capacity"><span class="secno">4.2</span> <span class="content"><code class="highlight"><span class="n">insert_from_capacity</span></code></span></a>
+      <li><a href="#implicit_construct"><span class="secno">4.3</span> <span class="content"><code class="highlight"><span class="n">implicit_construct</span></code></span></a>
+      <li><a href="#uninitialized_data"><span class="secno">4.4</span> <span class="content"><code class="highlight"><span class="n">uninitialized_data</span></code></span></a>
      </ol>
     <li><a href="#issues"><span class="secno">5</span> <span class="content">Open Issues</span></a>
     <li>
-     <a href="#bikeshed"><span class="secno">6</span> <span class="content">Bike-shedding</span></a>
+     <a href="#wording"><span class="secno">6</span> <span class="content">Wording</span></a>
      <ol class="toc">
-      <li><a href="#insert_from_capacity"><span class="secno">6.1</span> <span class="content"><code class="highlight"><span class="n">insert_from_capacity</span></code></span></a>
-      <li><a href="#implicit_construct"><span class="secno">6.2</span> <span class="content"><code class="highlight"><span class="n">implicit_construct</span></code></span></a>
+      <li><a href="#requirements"><span class="secno">6.1</span> <span class="content">[<strong>allocator.requirements</strong>]</span></a>
+      <li><a href="#traits"><span class="secno">6.2</span> <span class="content">[<strong>allocator.traits</strong>]</span></a>
+      <li><a href="#general"><span class="secno">6.3</span> <span class="content">[<strong>container.requirements.general</strong>]</span></a>
+      <li><a href="#vector"><span class="secno">6.4</span> <span class="content">[<strong>vector</strong>]</span></a>
      </ol>
-    <li>
-     <a href="#wording"><span class="secno">7</span> <span class="content">Wording</span></a>
-     <ol class="toc">
-      <li><a href="#requirements"><span class="secno">7.1</span> <span class="content">[<strong>allocator.requirements</strong>]</span></a>
-      <li><a href="#traits"><span class="secno">7.2</span> <span class="content">[<strong>allocator.traits</strong>]</span></a>
-      <li><a href="#general"><span class="secno">7.3</span> <span class="content">[<strong>container.requirements.general</strong>]</span></a>
-      <li><a href="#vector"><span class="secno">7.4</span> <span class="content">[<strong>vector</strong>]</span></a>
-     </ol>
-    <li><a href="#acknowledgments"><span class="secno">8</span> <span class="content">Acknowledgments</span></a>
+    <li><a href="#acknowledgments"><span class="secno">7</span> <span class="content">Acknowledgments</span></a>
     <li>
      <a href="#references"><span class="secno"></span> <span class="content">References</span></a>
      <ol class="toc">
@@ -1524,7 +1521,7 @@ objects.</p>
      does not participate in overload resolution unless <code class="highlight"><span class="n">C</span></code> is an implicit
      lifetime type. By default it does nothing. 
    </ul>
-   <p>Then in [<strong>allocator.traits</strong>] we add:</p>
+   <p>Then in [<strong>allocator.traits</strong>] we add a new <em>optional</em> member:</p>
    <ul>
     <li>
       <code class="highlight"><span class="n">implicit_construct</span><span class="p">(</span><span class="n">Alloc</span><span class="o">&amp;</span> <span class="n">a</span><span class="p">,</span> <span class="n">T</span><span class="o">*</span> <span class="n">p</span><span class="p">)</span></code> - This member function: 
@@ -1536,8 +1533,7 @@ objects.</p>
      <p>(The intent is to leave the meaning of allocators which define <code class="highlight"><span class="n">construct</span><span class="p">(</span><span class="n">T</span><span class="o">*</span><span class="p">)</span></code> unchanged, but to allow those that don’t, including the
      default allocator, to support <code class="highlight"><span class="n">implicit_construct</span></code> implicitly.)</p>
    </ul>
-   <p>With allocator support in place, we add the following two member functions in
-[<strong>vector</strong>]:</p>
+   <p>Finally, in [<strong>vector</strong>] we add two member functions:</p>
    <ul>
     <li>
       <code class="highlight"><span class="n">T</span><span class="o">*</span> <span class="n">uninitialized_data</span><span class="p">()</span></code> - Returns a pointer to storage that
@@ -1683,7 +1679,7 @@ Fixes #9166
    <p>These optimizations are also supported in Boost Container’s <code class="highlight"><span class="n">small_vector</span></code>, <code class="highlight"><span class="n">static_vector</span></code>, <code class="highlight"><span class="n">deque</span></code>, <code class="highlight"><span class="n">stable_vector</span></code>, and <code class="highlight"><span class="n">string</span></code>.</p>
    <h3 class="heading settled" data-level="3.3" id="mongodb"><span class="secno">3.3. </span><span class="content">MongoDB</span><a class="self-link" href="#mongodb"></a></h3>
    <p>MongoDB has a string builder that could have been implemented in terms of <code class="highlight"><span class="n">basic_string</span></code> as a return value. However, as explained by Mathias Stearn, zero
-initizliation was measured and was too costly. Instead a custom string builder
+initialization was measured and was too costly. Instead a custom string builder
 type is used:</p>
    <p>E.g.: <a href="https://github.com/mongodb/mongo/blob/67da083face9dabdf95a5ffb72d3da675269b4c7/src/mongo/db/fts/unicode/string.h#L128-L143"> https://github.com/mongodb/mongo/blob/master/src/mongo/db/fts/unicode/string.h </a></p>
 <pre class="highlight"><span class="cm">/**</span>
@@ -1716,39 +1712,18 @@ basic_string::resize_uninitialized (or a similar mechanism)":<br> <a href="https
    <h3 class="heading settled" data-level="3.6" id="p1020r0"><span class="secno">3.6. </span><span class="content">P1020R0</span><a class="self-link" href="#p1020r0"></a></h3>
     See also <a data-link-type="biblio" href="#biblio-p1020r0">[P1020R0]</a> "Smart pointer creation functions for default initialization". 
    <h2 class="heading settled" data-level="4" id="alternatives"><span class="secno">4. </span><span class="content">Alternatives Considered</span><a class="self-link" href="#alternatives"></a></h2>
-   <h3 class="heading settled" data-level="4.1" id="free"><span class="secno">4.1. </span><span class="content">Free function instead of modifying <code class="highlight"><span class="n">allocator_traits</span></code></span><a class="self-link" href="#free"></a></h3>
-   <p>This proposal adds a member to <code class="highlight"><span class="n">std</span><span class="o">::</span><span class="n">allocator_traits</span></code>. Such a change risks
-breaking user specializations of <code class="highlight"><span class="n">std</span><span class="o">::</span><span class="n">allocator_traits</span></code>. For example, the
-authors of <a data-link-type="biblio" href="#biblio-p0653r2">[P0653R2]</a> avoided a similar edit to <code class="highlight"><span class="n">std</span><span class="o">::</span><span class="n">pointer_traits</span></code> by
-creating a free function. We could define <code class="highlight"><span class="n">std</span><span class="o">::</span><span class="n">implicit_construct</span></code> as a free
-function. However this may not be necessary because:</p>
-   <ul>
-    <li> <code class="highlight"><span class="n">implicit_construct</span></code> is defined as an optional member of <code class="highlight"><span class="n">allocator_traits</span></code> and containers must test for its well-formedness for each <code class="highlight"><span class="p">(</span><span class="n">Alloc</span><span class="p">,</span> <span class="n">U</span><span class="p">)</span></code>. 
-    <li> While the standard explicitly allows user specialization of <code class="highlight"><span class="n">allocator_traits</span></code> this class is designed to provide uniform operations
-     over user "specialized" allocators. By allowing users to specialize <code class="highlight"><span class="n">allocator_traits</span></code> are we giving users more customization points than they
-     need? Should <code class="highlight"><span class="n">allocator_traits</span></code> have been named <code class="highlight"><span class="n">allocator_adapter</span></code> or <code class="highlight"><span class="n">allocator_interface</span></code>? Should we discourage or deprecate user
-     specialization? 
-   </ul>
-   <h2 class="heading settled" data-level="5" id="issues"><span class="secno">5. </span><span class="content">Open Issues</span><a class="self-link" href="#issues"></a></h2>
-   <ul>
-    <li> Include a discussion of the tradeoffs between implicit lifetime types and
-     default initialization. 
-    <li> Include a disscussion of allowing the application to construct directly vs.
-     requireing implicit creation. Or, at least remove "does not participate in
-     overload resolution to allow implementations to provide this as an
-     extension. 
-    <li>
-      <strong>Q:</strong> Can <code class="highlight"><span class="n">implicit_construct</span></code> throw? 
-     <p><strong>A:</strong> Yes.</p>
-    <p></p>
-    <li>
-      <strong>Q:</strong> Should <code class="highlight"><span class="n">insert_from_capacity</span><span class="p">(</span><span class="n">n</span><span class="p">)</span></code> return an iterator,
-     like the other "inserts", or should it return <code class="highlight"><span class="n">vector</span><span class="o">&amp;</span></code> like <code class="highlight"><span class="n">basic_string</span><span class="o">::</span><span class="n">append</span></code>? Should <code class="highlight"><span class="n">vector</span></code> have <code class="highlight"><span class="n">append</span></code>?? 
-     <p><strong>A:</strong> Depends on the name. See bike-shedding below. </p>
-    <p></p>
-   </ul>
-   <h2 class="heading settled" data-level="6" id="bikeshed"><span class="secno">6. </span><span class="content">Bike-shedding</span><a class="self-link" href="#bikeshed"></a></h2>
-   <h3 class="heading settled" data-level="6.1" id="insert_from_capacity"><span class="secno">6.1. </span><span class="content"><code class="highlight"><span class="n">insert_from_capacity</span></code></span><a class="self-link" href="#insert_from_capacity"></a></h3>
+   <h3 class="heading settled" data-level="4.1" id="free"><span class="secno">4.1. </span><span class="content">Free function <code class="highlight"><span class="n">std</span><span class="o">::</span><span class="n">implicit_construct</span></code></span><a class="self-link" href="#free"></a></h3>
+   <p>This proposal adds an optional member to <code class="highlight"><span class="n">std</span><span class="o">::</span><span class="n">allocator_traits</span></code>. In <a data-link-type="biblio" href="#biblio-p0653r2">[P0653R2]</a>, which added the optional member <code class="highlight"><span class="n">std</span><span class="o">::</span><span class="n">pointer_traits</span><span class="o">::</span><span class="n">to_address</span></code>,
+the author also added a free function <code class="highlight"><span class="n">std</span><span class="o">::</span><span class="n">to_address</span></code>. The free function
+provides uniform access to user specializations of <code class="highlight"><span class="n">pointer_traits</span></code> that do not
+define <code class="highlight"><span class="n">to_address</span></code>. A free function is not necessary or applicable here because
+containers need to directly test for well-formedness of <code class="highlight"><span class="n">allocator_traits</span><span class="o">&lt;</span><span class="n">Allocator</span><span class="o">>::</span><span class="n">rebind_traits</span><span class="o">&lt;</span><span class="n">U</span><span class="o">>::</span><span class="n">implicit_construct</span><span class="p">(</span><span class="n">U</span> <span class="o">*</span><span class="p">)</span></code> to
+correctly enable / disable methods in their interface.</p>
+   <p>Also consider that <code class="highlight"><span class="n">allocator_traits</span></code> is designed to provide uniform operations
+over custom allocators. [<strong>allocator.requirements</strong>]p2 does allow for user
+specialization of <code class="highlight"><span class="n">allocator_traits</span></code>, but do users need this additional
+customization point? Should <code class="highlight"><span class="n">allocator_traits</span></code> have been named <code class="highlight"><span class="n">allocator_adapter</span></code>? Should we discourage or deprecate user specialization?</p>
+   <h3 class="heading settled" data-level="4.2" id="insert_from_capacity"><span class="secno">4.2. </span><span class="content"><code class="highlight"><span class="n">insert_from_capacity</span></code></span><a class="self-link" href="#insert_from_capacity"></a></h3>
     What name and return type should we use? <br>  
    <table>
     <tbody>
@@ -1768,7 +1743,7 @@ function. However this may not be necessary because:</p>
      <tr>
       <td><code class="highlight"><span class="kt">void</span></code>
       <td><code class="highlight"><span class="n">resize_uninitialized</span><span class="p">(</span><span class="n">new_size</span><span class="p">)</span></code>
-      <td>but the elements <em>are</em> intialized
+      <td>but the elements <em>are</em> initialized
      <tr>
       <td><code class="highlight"><span class="kt">void</span></code>
       <td><code class="highlight"><span class="n">resize_from_capacity</span><span class="p">(</span><span class="n">new_size</span><span class="p">)</span></code>
@@ -1779,7 +1754,7 @@ function. However this may not be necessary because:</p>
       <td><code class="highlight"><span class="n">extend</span><span class="p">(</span><span class="n">n</span><span class="p">)</span></code>, <code class="highlight"><span class="n">grow</span><span class="p">(</span><span class="n">n</span><span class="p">)</span></code>, etc.
       <td>some new term...
    </table>
-   <h3 class="heading settled" data-level="6.2" id="implicit_construct"><span class="secno">6.2. </span><span class="content"><code class="highlight"><span class="n">implicit_construct</span></code></span><a class="self-link" href="#implicit_construct"></a></h3>
+   <h3 class="heading settled" data-level="4.3" id="implicit_construct"><span class="secno">4.3. </span><span class="content"><code class="highlight"><span class="n">implicit_construct</span></code></span><a class="self-link" href="#implicit_construct"></a></h3>
     What name should we use? <br>  
    <table>
     <tbody>
@@ -1797,8 +1772,45 @@ function. However this may not be necessary because:</p>
       <td><code class="highlight"><span class="n">bless</span><span class="p">(</span><span class="n">T</span> <span class="o">*</span><span class="p">)</span></code>
       <td>From <a data-link-type="biblio" href="#biblio-p0593r2">[P0593R2]</a>.
    </table>
-   <h2 class="heading settled" data-level="7" id="wording"><span class="secno">7. </span><span class="content">Wording</span><a class="self-link" href="#wording"></a></h2>
-   <h3 class="heading settled" data-level="7.1" id="requirements"><span class="secno">7.1. </span><span class="content">[<strong>allocator.requirements</strong>]</span><a class="self-link" href="#requirements"></a></h3>
+   <h3 class="heading settled" data-level="4.4" id="uninitialized_data"><span class="secno">4.4. </span><span class="content"><code class="highlight"><span class="n">uninitialized_data</span></code></span><a class="self-link" href="#uninitialized_data"></a></h3>
+   <p>What name and return type should we use? <br> </p>
+   <table>
+    <tbody>
+     <tr>
+      <th>Return type
+      <th>Name
+      <th>Comments
+     <tr>
+     <tr>
+      <td><code class="highlight"><span class="n">T</span><span class="o">*</span></code>
+      <td><code class="highlight"><span class="n">uninitialized_data</span><span class="p">()</span></code>
+      <td>as proposed
+     <tr>
+      <td><code class="highlight"><span class="n">span</span><span class="o">&lt;</span><span class="n">T</span><span class="o">></span></code>
+      <td><code class="highlight"><span class="n">uninitialized_data</span><span class="p">()</span></code>
+      <td> Nevin commented: the current proposal makes <code class="highlight"><span class="n">capacity</span><span class="p">()</span></code> a salient property
+     of <code class="highlight"><span class="n">vector</span></code> and that that may be unsirable from the LEWG point of view.
+     Mathias suggested returning <code class="highlight"><span class="n">span</span><span class="o">&lt;</span><span class="n">T</span><span class="o">></span></code> 
+   </table>
+   <h2 class="heading settled" data-level="5" id="issues"><span class="secno">5. </span><span class="content">Open Issues</span><a class="self-link" href="#issues"></a></h2>
+   <ul>
+    <li> Discuss the tradeoffs between implicit lifetime types and default
+     initialization. 
+    <li> Discuss allowing the application to construct directly vs. requiring
+     implicit creation. Or, at least remove "does not participate in overload
+     resolution to allow implementations to provide this as an extension. 
+    <li>
+      <strong>Q:</strong> Can <code class="highlight"><span class="n">implicit_construct</span></code> throw? 
+     <p><strong>A:</strong> Yes.</p>
+    <p></p>
+    <li>
+      <strong>Q:</strong> Should <code class="highlight"><span class="n">insert_from_capacity</span><span class="p">(</span><span class="n">n</span><span class="p">)</span></code> return an iterator,
+     like the other "inserts", or should it return <code class="highlight"><span class="n">vector</span><span class="o">&amp;</span></code> like <code class="highlight"><span class="n">basic_string</span><span class="o">::</span><span class="n">append</span></code>? Should <code class="highlight"><span class="n">vector</span></code> have <code class="highlight"><span class="n">append</span></code>?? 
+     <p><strong>A:</strong> Depends on the name. See bike-shedding below. </p>
+    <p></p>
+   </ul>
+   <h2 class="heading settled" data-level="6" id="wording"><span class="secno">6. </span><span class="content">Wording</span><a class="self-link" href="#wording"></a></h2>
+   <h3 class="heading settled" data-level="6.1" id="requirements"><span class="secno">6.1. </span><span class="content">[<strong>allocator.requirements</strong>]</span><a class="self-link" href="#requirements"></a></h3>
    <p>In [<strong>allocator.requirements</strong>] Table 31 add the <code class="highlight"><span class="n">a</span><span class="p">.</span><span class="n">implicit_construct</span><span class="p">(</span><span class="n">c</span><span class="p">)</span></code> expression:</p>
    <blockquote>
     <table>
@@ -1846,81 +1858,26 @@ function. However this may not be necessary because:</p>
      instantiate. 
     </ol>
    </blockquote>
-   <h3 class="heading settled" data-level="7.2" id="traits"><span class="secno">7.2. </span><span class="content">[<strong>allocator.traits</strong>]</span><a class="self-link" href="#traits"></a></h3>
-   <p>In [<strong>allocator.traits</strong>] add the declaration of <code class="highlight"><span class="n">implicit_construct</span></code>.</p>
+   <h3 class="heading settled" data-level="6.2" id="traits"><span class="secno">6.2. </span><span class="content">[<strong>allocator.traits</strong>]</span><a class="self-link" href="#traits"></a></h3>
+   <p class="note" role="note"><span>Note:</span> Following the pattern of <code class="highlight"><span class="n">pointer_traits</span><span class="o">::</span><span class="n">to_address</span></code> we do not add <code class="highlight"><span class="n">implicit_construct</span></code> to the synopsis in [<strong>allocator.traits</strong>]. Placing it there
+would make it a required member of <code class="highlight"><span class="n">allocator_traits</span></code> which would break existing
+user specializations.</p>
+   <p>Add a new § 23.10.9.3:</p>
    <blockquote>
-<pre>namespace std {
-  template&lt;class Alloc> struct allocator_traits {
-    using allocator_type     = Alloc;
-
-    using value_type         = typename Alloc::value_type;
-
-    using pointer            = see below ;
-    using const_pointer      = see below ;
-    using void_pointer       = see below ;
-    using const_void_pointer = see below ;
-
-    using difference_type    = see below ;
-    using size_type          = see below ;
-
-    using propagate_on_container_copy_assignment = see below ;
-    using propagate_on_container_move_assignment = see below ;
-    using propagate_on_container_swap            = see below ;
-    using is_always_equal                        = see below ;
-
-    template&lt;class T> using rebind_alloc = see below ;
-    template&lt;class T> using rebind_traits = allocator_traits&lt;rebind_alloc&lt;T>>;
-
-    [[nodiscard]] static pointer allocate(Alloc&amp; a, size_type n);
-    [[nodiscard]] static pointer allocate(Alloc&amp; a, size_type n, const_void_pointer hint);
-
-    static void deallocate(Alloc&amp; a, pointer p, size_type n);
-
-    template&lt;class T, class... Args>
-      static void construct(Alloc&amp; a, T* p, Args&amp;&amp;... args);
-    <ins>template&lt;class T>
-      static void implicit_construct(Alloc&amp; a, T* p);</ins>
-
-    template&lt;class T>
-      static void destroy(Alloc&amp; a, T* p);
-
-    static size_type max_size(const Alloc&amp; a) noexcept;
-
-    static Alloc select_on_container_copy_construction(const Alloc&amp; rhs);
-  };
-}
-</pre>
-   </blockquote>
-   <p>In [<strong>allocator.traits.members</strong>] insert a new p6:</p>
-   <blockquote>
-<pre>template&lt;class T, class... Args>
-  static void construct(Alloc&amp; a, T* p, Args&amp;&amp;... args);
-</pre>
-    <ol start="5">
-     <li> <em>Effects:</em> Calls <code> a.construct(p,
-     std::forward<args>(args)...)</args></code> if that call is well-formed; otherwise,
-     invokes <code>::new (static_cast<voidU0002A>(p))
-     T(std::forward<args>(args)...)</args></voidU0002A></code>.
-    </ol>
     <ins>
+     <p><strong>23.10.9.3 Allocator traits optional static member functions
+      [allocator.traits.optmem]</strong></p>
 <pre>template&lt;class T, class... Args>
   static void implicit_construct(Alloc&amp; a, T* p);
 </pre>
-     <ol start="6">
+     <ol>
       <li> <em>Effects:</em> Calls <code>a.implicit_construct(p)</code> if that
      call is well-formed; otherwise, does nothing if <code>T</code> is an <em>implicit lifetime</em> type and <code>a.construct(p)</code> is <em>not</em> well-formed; otherwise, does not participate in overload
      resolution.
      </ol>
     </ins>
-<pre>template&lt;class T>
-  static void destroy(Alloc&amp; a, T* p);
-</pre>
-    <ol start="7">
-     <li> <em>Effects:</em> Calls <code>a.destroy(p)</code> if that call is
-     well-formed; otherwise, invokes <code>p->~T().</code>
-    </ol>
    </blockquote>
-   <h3 class="heading settled" data-level="7.3" id="general"><span class="secno">7.3. </span><span class="content">[<strong>container.requirements.general</strong>]</span><a class="self-link" href="#general"></a></h3>
+   <h3 class="heading settled" data-level="6.3" id="general"><span class="secno">6.3. </span><span class="content">[<strong>container.requirements.general</strong>]</span><a class="self-link" href="#general"></a></h3>
    <p>In [<strong>container.requirements.general</strong>]p3 add references to <code class="highlight"><span class="n">implicit_construct</span></code>:</p>
    <blockquote>
     <ol start="3">
@@ -1936,7 +1893,7 @@ function. However this may not be necessary because:</p>
      buffer. — <em>end note</em> ] 
     </ol>
    </blockquote>
-   <h3 class="heading settled" data-level="7.4" id="vector"><span class="secno">7.4. </span><span class="content">[<strong>vector</strong>]</span><a class="self-link" href="#vector"></a></h3>
+   <h3 class="heading settled" data-level="6.4" id="vector"><span class="secno">6.4. </span><span class="content">[<strong>vector</strong>]</span><a class="self-link" href="#vector"></a></h3>
    <p>In [<strong>vector.overview</strong>] add the declaration for <code class="highlight"><span class="n">insert_from_capacity</span></code>:</p>
    <blockquote>
 <pre>namespace std {
@@ -2026,10 +1983,11 @@ void pop_back();
      <li> ... 
     </ol>
    </blockquote>
-   <h2 class="heading settled" data-level="8" id="acknowledgments"><span class="secno">8. </span><span class="content">Acknowledgments</span><a class="self-link" href="#acknowledgments"></a></h2>
-   <p><strong>Agustín Bergé</strong>, <strong>Arthur O’Dwyer</strong>, and <strong>Glen Fernandes</strong> provided guidance
-on object lifetime and allocator interactions. Thanks also for early comments
-from <strong>Nevin Liber</strong> and <strong>Mathias Stearn</strong>.</p>
+   <h2 class="heading settled" data-level="7" id="acknowledgments"><span class="secno">7. </span><span class="content">Acknowledgments</span><a class="self-link" href="#acknowledgments"></a></h2>
+   <p>Special thanks go to <strong>Glen Fernandes</strong> for early comments and help with
+wording. Thanks also for early comments from <strong>Nevin Liber</strong> and <strong>Mathias
+Stearn</strong>. <strong>Agustín Bergé</strong> and <strong>Arthur O’Dwyer</strong> provided guidance on object
+lifetime and allocator interactions.</p>
   </main>
 <script>
 (function() {
