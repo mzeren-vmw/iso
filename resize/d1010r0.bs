@@ -88,7 +88,7 @@ Starting with [**allocator.requirements**] (Table 31), we add:
 
 </ul>
 
-Then in [**allocator.traits**] we add:
+Then in [**allocator.traits**] we add a new *optional* member:
 
 <ul>
 
@@ -112,8 +112,7 @@ Then in [**allocator.traits**] we add:
 </li>
 </ul>
 
-With allocator support in place, we add the following two member functions in
-[**vector**]:
+Finally, in [**vector**] we add two member functions:
 
 <ul>
 
@@ -337,7 +336,7 @@ MongoDB
 
 MongoDB has a string builder that could have been implemented in terms of
 `basic_string` as a return value. However, as explained by Mathias Stearn, zero
-initizliation was measured and was too costly. Instead a custom string builder
+initialization was measured and was too costly. Instead a custom string builder
 type is used:
 
 E.g.: <a
@@ -392,30 +391,24 @@ See also [[P1020R0]] "Smart pointer creation functions for default initializatio
 Alternatives Considered {#alternatives}
 =======================
 
-Free function instead of modifying `allocator_traits` {#free}
+Free function `std::implicit_construct` {#free}
 -----------------------------------------------------
 
-This proposal adds a member to `std::allocator_traits`. Such a change risks
-breaking user specializations of `std::allocator_traits`. For example, the
-authors of [[P0653R2]] avoided a similar edit to `std::pointer_traits` by
-creating a free function. We could define `std::implicit_construct` as a free
-function. However this may not be necessary because:
+This proposal adds an optional member to `std::allocator_traits`. In
+[[P0653R2]], which added the optional member `std::pointer_traits::to_address`,
+the author also added a free function `std::to_address`. The free function
+provides uniform access to user specializations of `pointer_traits` that do not
+define `to_address`. A free function is not necessary or applicable here because
+containers need to directly test for well-formedness of
+`allocator_traits<Allocator>::rebind_traits<U>::implicit_construct(U *)` to
+correctly enable / disable methods in their interface.
 
-<ul>
+Also consider that `allocator_traits` is designed to provide uniform operations
+over custom allocators. [**allocator.requirements**]p2 does allow for user
+specialization of `allocator_traits`, but do users need this additional
+customization point? Should `allocator_traits` have been named
+`allocator_adapter`? Should we discourage or deprecate user specialization?</li>
 
-<li> `implicit_construct` is defined as an optional member of `allocator_traits`
-     and containers must test for its well-formedness for each `(Alloc, U)`.
-     </li>
-
-<li> While the standard explicitly allows user specialization of
-     `allocator_traits` this class is designed to provide uniform operations
-     over user "specialized" allocators. By allowing users to specialize
-     `allocator_traits` are we giving users more customization points than they
-     need? Should `allocator_traits` have been named `allocator_adapter` or
-     `allocator_interface`? Should we discourage or deprecate user
-     specialization?
-
-</ul>
 
 Open Issues {#issues}
 ===========
@@ -425,8 +418,8 @@ Open Issues {#issues}
 <li> Include a discussion of the tradeoffs between implicit lifetime types and
      default initialization.
 
-<li> Include a disscussion of allowing the application to construct directly vs.
-     requireing implicit creation. Or, at least remove "does not participate in
+<li> Include a discussion of allowing the application to construct directly vs.
+     requiring implicit creation. Or, at least remove "does not participate in
      overload resolution to allow implementations to provide this as an
      extension. </li>
 
@@ -469,7 +462,7 @@ What name and return type should we use?
 <tr>
 <td>`void`</td>
 <td>`resize_uninitialized(new_size)`</td>
-<td>but the elements *are* intialized</td>
+<td>but the elements *are* initialized</td>
 </tr>
 
 <tr>
@@ -588,77 +581,25 @@ And then in [**allocator.requirements**]p9 add references to
 [**allocator.traits**] {#traits}
 ----------------------
 
-In [**allocator.traits**] add the declaration of `implicit_construct`.
+Note: Following the pattern of `pointer_traits::to_address` we do not add
+`implicit_construct` to the synopsis in [**allocator.traits**]. Placing it there
+would make it a required member of `allocator_traits` which would break existing
+user specializations.
+
+Add a new &sect; 23.10.9.3:
 
 <blockquote>
-<pre highlight="">
-namespace std {
-  template&lt;class Alloc&gt; struct allocator_traits {
-    using allocator_type     = Alloc;
-
-    using value_type         = typename Alloc::value_type;
-
-    using pointer            = see below ;
-    using const_pointer      = see below ;
-    using void_pointer       = see below ;
-    using const_void_pointer = see below ;
-
-    using difference_type    = see below ;
-    using size_type          = see below ;
-
-    using propagate_on_container_copy_assignment = see below ;
-    using propagate_on_container_move_assignment = see below ;
-    using propagate_on_container_swap            = see below ;
-    using is_always_equal                        = see below ;
-
-    template&lt;class T&gt; using rebind_alloc = see below ;
-    template&lt;class T&gt; using rebind_traits = allocator_traits&lt;rebind_alloc&lt;T&gt;&gt;;
-
-    [[nodiscard]] static pointer allocate(Alloc& a, size_type n);
-    [[nodiscard]] static pointer allocate(Alloc& a, size_type n, const_void_pointer hint);
-
-    static void deallocate(Alloc& a, pointer p, size_type n);
-
-    template&lt;class T, class... Args&gt;
-      static void construct(Alloc& a, T* p, Args&&... args);
-    <ins>template&lt;class T&gt;
-      static void implicit_construct(Alloc& a, T* p);</ins>
-
-    template&lt;class T&gt;
-      static void destroy(Alloc& a, T* p);
-
-    static size_type max_size(const Alloc& a) noexcept;
-
-    static Alloc select_on_container_copy_construction(const Alloc& rhs);
-  };
-}
-</pre>
-</blockquote>
-
-In [**allocator.traits.members**] insert a new p6:
-
-<blockquote>
-
-<pre highlight="">
-  template&lt;class T, class... Args&gt;
-    static void construct(Alloc& a, T* p, Args&&... args);
-</pre>
-
-<ol start="5">
-
-<li> *Effects:* Calls <code highlight=""> a.construct(p,
-     std::forward<Args>(args)...)</code> if that call is well-formed; otherwise,
-     invokes <code highlight="">::new (static_cast<void*>(p))
-     T(std::forward<Args>(args)...)</code>.</li>
-
-</ol>
 <ins>
+
+<strong>23.10.9.3 Allocator traits optional static member functions
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [allocator.traits.optmem]</strong>
+
 <pre highlight="">
   template&lt;class T, class... Args&gt;
     static void implicit_construct(Alloc& a, T* p);
 </pre>
 
-<ol start="6">
+<ol>
 
 <li> *Effects:* Calls <code highlight="">a.implicit_construct(p)</code> if that
      call is well-formed; otherwise, does nothing if <code highlight="">T</code>
@@ -668,16 +609,6 @@ In [**allocator.traits.members**] insert a new p6:
 
 </ol>
 </ins>
-<pre highlight="">
-  template&lt;class T&gt;
-    static void destroy(Alloc& a, T* p);
-</pre>
-<ol start="7">
-
-<li> *Effects:* Calls <code highlight="">a.destroy(p)</code> if that call is
-     well-formed; otherwise, invokes <code highlight="">p->~T().</code></li>
-
-</ol>
 </blockquote>
 
 
@@ -842,9 +773,10 @@ void pop_back();
 Acknowledgments {#acknowledgments}
 ================
 
-**Agustín Bergé**, **Arthur O'Dwyer**, and **Glen Fernandes** provided guidance
-on object lifetime and allocator interactions. Thanks also for early comments
-from **Nevin Liber** and **Mathias Stearn**.
+Special thanks go to **Glen Fernandes** for early comments and help with
+wording. Thanks also for early comments from **Nevin Liber** and **Mathias
+Stearn**. **Agustín Bergé** and **Arthur O'Dwyer** provided guidance on object
+lifetime and allocator interactions.
 
 <pre class=biblio>
 {
