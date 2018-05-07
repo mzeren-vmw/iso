@@ -53,10 +53,10 @@ optimizations for allocator aware containers, and extends `vector` to allow
 them. Prior work in this area has relied on trivial default construction.
 However, [[P0593R2]] allows class types with *non-trivial* default constructors
 that have trivial move or copy constructors to be implicit lifetime types. This
-proposal includes this broader set of types. Default construction typically
-leaves indeterminate values in elements of the `vector`, exposing the container
+proposal includes this alternate set of types. Default construction typically
+leaves indeterminate values in elements controlled by the `vector`, exposing it
 to undefined behavior until the application initializes all such elements. This
-proposal avoids this "trap" state for the container by not incorporating
+proposal avoids this "trap state" for the container by not incorporating
 elements into the container until they have been initialized.
 
 We will propose related changes to `basic_string` in a separate paper
@@ -261,8 +261,7 @@ Related work {#related}
 ============
 
 As mentioned above, all related work to date has used default initialization.
-This is the first proposal that the larger set of implicit lifetime types as
-defined in [[P0593R2]].
+This is the first proposal that uses implicit lifetime types.
 
 
 Google <code>basic_string</code> {#google}
@@ -383,6 +382,7 @@ basic_string::resize_uninitialized (or a similar mechanism)":</br> <a
 href="https://groups.google.com/a/isocpp.org/forum/#!topic/std-proposals/XIO4KbBTxl0">
 https://groups.google.com/a/isocpp.org/forum/#!topic/std-proposals/XIO4KbBTxl0</a>
 
+
 P1020R0
 -------
 See also [[P1020R0]] "Smart pointer creation functions for default initialization".
@@ -494,7 +494,7 @@ What name and return type should we use?
 
 <td> Nevin commented: the current proposal makes `capacity()` a salient property
      of `vector` and that that may be unsirable from the LEWG point of view.
-     Mathias suggested returning `span<T>` </td>
+     Mathias suggested returning `span<T>`.</td>
 
 </tr>
 
@@ -506,13 +506,6 @@ Open Issues {#issues}
 
 <ul>
 
-<li> Discuss the tradeoffs between implicit lifetime types and default
-     initialization.
-
-<li> Discuss allowing the application to construct directly vs. requiring
-     implicit creation. Or, at least remove "does not participate in overload
-     resolution to allow implementations to provide this as an extension. </li>
-
 <li> **Q:** Can `implicit_construct` throw?
 
      **A:** Yes.</li>
@@ -522,6 +515,9 @@ Open Issues {#issues}
      `basic_string::append`? Should `vector` have `append`??
 
      **A:** Depends on the name. See bike-shedding below. </li>
+
+<li> It would be useful to add a discussion of the tradeoffs between implicit
+     lifetime types and default initialization.
 
 </ul>
 
@@ -796,9 +792,9 @@ void pop_back();
 Acknowledgments {#acknowledgments}
 ================
 
-Special thanks go to **Glen Fernandes** for early comments and help with
-wording. Thanks also for early comments from **Nevin Liber** and **Mathias
-Stearn**. **Agustín Bergé** and **Arthur O'Dwyer** provided guidance on object
+Special thanks go to **Glen Fernandes** and **Mathias Stearn** for early
+comments and help with wording. Thanks also for early comments from **Nevin
+Liber**, **Agustín Bergé** and **Arthur O'Dwyer** provided guidance on object
 lifetime and allocator interactions.
 
 <pre class=biblio>
