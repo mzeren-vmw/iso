@@ -510,12 +510,6 @@ Open Issues {#issues}
 
      **A:** Yes.</li>
 
-<li> **Q:** Should `insert_from_capacity(n)` return an iterator,
-     like the other "inserts", or should it return `vector&` like
-     `basic_string::append`? Should `vector` have `append`??
-
-     **A:** Depends on the name. See bike-shedding below. </li>
-
 <li> It would be useful to add a discussion of the tradeoffs between implicit
      lifetime types and default initialization.
 
