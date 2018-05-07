@@ -1,15 +1,15 @@
 <pre class='metadata'>
 Title: Container support for implicit lifetime types
-Shortname: D1010
+Shortname: P1010
 Revision: 0
 Audience: LEWG, LWG
 Status: D
 Group: WG21
-URL: http://wg21.link/D1010R0
-!Source: <a href="https://github.com/mzeren-vmw/iso/blob/master/resize/d1010r0.bs">https://github.com/mzeren-vmw/iso/blob/master/resize/d1010r0.bs</a>
+URL: http://wg21.link/p1010r0
+!Source: <a href="https://github.com/mzeren-vmw/iso/blob/master/resize/p1010r0.bs">https://github.com/mzeren-vmw/iso/blob/master/resize/p1010r0.bs</a>
 Editor: Mark Zeren, VMware, mzeren@vmware.com
 Editor: Chris Kennelly, Google, ckennelly@google.com
-Date: 2018-04-29
+Date: 2018-05-06
 Markup Shorthands: markdown yes
 
 Abstract: Extend allocators, <code>allocator_traits</code>, and
