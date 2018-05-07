@@ -2,7 +2,7 @@
  <head>
   <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
   <meta content="width=device-width, initial-scale=1, shrink-to-fit=no" name="viewport">
-  <title>d1010R0: Container support for implicit lifetime types</title>
+  <title>p1010R0: Container support for implicit lifetime types</title>
 <style data-fill-with="stylesheet">/******************************************************************************
  *                   Style sheet for the W3C specifications                   *
  *
@@ -1192,7 +1192,7 @@ Possible extra rowspan handling
     }
   </style>
   <meta content="Bikeshed version 374411ba509d23f8a91b3530bae1f342eb291098" name="generator">
-  <link href="http://wg21.link/D1010R0" rel="canonical">
+  <link href="http://wg21.link/p1010r0" rel="canonical">
 <style>/* style-md-lists */
 
 /* This is a weird hack for me not yet following the commonmark spec
@@ -1401,12 +1401,12 @@ pre .property::before, pre .property::after {
  <body class="h-entry">
   <div class="head">
    <p data-fill-with="logo"></p>
-   <h1 class="p-name no-ref" id="title">d1010R0<br>Container support for implicit lifetime types</h1>
-   <h2 class="no-num no-toc no-ref heading settled" id="subtitle"><span class="content">Draft Proposal, <time class="dt-updated" datetime="2018-04-29">29 April 2018</time></span></h2>
+   <h1 class="p-name no-ref" id="title">p1010R0<br>Container support for implicit lifetime types</h1>
+   <h2 class="no-num no-toc no-ref heading settled" id="subtitle"><span class="content">Draft Proposal, <time class="dt-updated" datetime="2018-05-06">6 May 2018</time></span></h2>
    <div data-fill-with="spec-metadata">
     <dl>
      <dt>This version:
-     <dd><a class="u-url" href="http://wg21.link/D1010R0">http://wg21.link/D1010R0</a>
+     <dd><a class="u-url" href="http://wg21.link/p1010r0">http://wg21.link/p1010r0</a>
      <dt>Authors:
      <dd>
       <dd class="editor p-author h-card vcard"><a class="p-name fn u-email email" href="mailto:mzeren@vmware.com">Mark Zeren</a> (<span class="p-org org">VMware</span>)
@@ -1417,7 +1417,7 @@ pre .property::before, pre .property::after {
      <dt>Project:
      <dd>ISO JTC1/SC22/WG21: Programming Language C++
      <dt>Source:
-     <dd><a href="https://github.com/mzeren-vmw/iso/blob/master/resize/d1010r0.bs">https://github.com/mzeren-vmw/iso/blob/master/resize/d1010r0.bs</a>
+     <dd><a href="https://github.com/mzeren-vmw/iso/blob/master/resize/p1010r0.bs">https://github.com/mzeren-vmw/iso/blob/master/resize/p1010r0.bs</a>
     </dl>
    </div>
    <div data-fill-with="warning"></div>
@@ -1498,10 +1498,10 @@ optimizations for allocator aware containers, and extends <code class="highlight
 them. Prior work in this area has relied on trivial default construction.
 However, <a data-link-type="biblio" href="#biblio-p0593r2">[P0593R2]</a> allows class types with <em>non-trivial</em> default constructors
 that have trivial move or copy constructors to be implicit lifetime types. This
-proposal includes this broader set of types. Default construction typically
-leaves indeterminate values in elements of the <code class="highlight"><span class="n">vector</span></code>, exposing the container
+proposal includes this alternate set of types. Default construction typically
+leaves indeterminate values in elements controlled by the <code class="highlight"><span class="n">vector</span></code>, exposing it
 to undefined behavior until the application initializes all such elements. This
-proposal avoids this "trap" state for the container by not incorporating
+proposal avoids this "trap state" for the container by not incorporating
 elements into the container until they have been initialized.</p>
    <p>We will propose related changes to <code class="highlight"><span class="n">basic_string</span></code> in a separate paper <a data-link-type="biblio" href="#biblio-p1072r0">[P1072R0]</a>.</p>
    <h3 class="heading settled" data-level="1.1" id="approach"><span class="secno">1.1. </span><span class="content">Approach</span><a class="self-link" href="#approach"></a></h3>
@@ -1639,8 +1639,7 @@ as:</p>
    </ol>
    <h2 class="heading settled" data-level="3" id="related"><span class="secno">3. </span><span class="content">Related work</span><a class="self-link" href="#related"></a></h2>
    <p>As mentioned above, all related work to date has used default initialization.
-This is the first proposal that the larger set of implicit lifetime types as
-defined in <a data-link-type="biblio" href="#biblio-p0593r2">[P0593R2]</a>.</p>
+This is the first proposal that uses implicit lifetime types.</p>
    <h3 class="heading settled" data-level="3.1" id="google"><span class="secno">3.1. </span><span class="content">Google <code class="highlight"><span class="n">basic_string</span></code></span><a class="self-link" href="#google"></a></h3>
    <p>Google has hacked their internal <code class="highlight"><span class="n">basic_string</span></code> implementation to
 provide a related <code class="highlight"><span class="n">resize_uninitialized</span></code> API. They have measured performance
@@ -1790,24 +1789,16 @@ customization point? Should <code class="highlight"><span class="n">allocator_tr
       <td><code class="highlight"><span class="n">uninitialized_data</span><span class="p">()</span></code>
       <td> Nevin commented: the current proposal makes <code class="highlight"><span class="n">capacity</span><span class="p">()</span></code> a salient property
      of <code class="highlight"><span class="n">vector</span></code> and that that may be unsirable from the LEWG point of view.
-     Mathias suggested returning <code class="highlight"><span class="n">span</span><span class="o">&lt;</span><span class="n">T</span><span class="o">></span></code> 
+     Mathias suggested returning <code class="highlight"><span class="n">span</span><span class="o">&lt;</span><span class="n">T</span><span class="o">></span></code>.
    </table>
    <h2 class="heading settled" data-level="5" id="issues"><span class="secno">5. </span><span class="content">Open Issues</span><a class="self-link" href="#issues"></a></h2>
    <ul>
-    <li> Discuss the tradeoffs between implicit lifetime types and default
-     initialization. 
-    <li> Discuss allowing the application to construct directly vs. requiring
-     implicit creation. Or, at least remove "does not participate in overload
-     resolution to allow implementations to provide this as an extension. 
     <li>
       <strong>Q:</strong> Can <code class="highlight"><span class="n">implicit_construct</span></code> throw? 
      <p><strong>A:</strong> Yes.</p>
     <p></p>
-    <li>
-      <strong>Q:</strong> Should <code class="highlight"><span class="n">insert_from_capacity</span><span class="p">(</span><span class="n">n</span><span class="p">)</span></code> return an iterator,
-     like the other "inserts", or should it return <code class="highlight"><span class="n">vector</span><span class="o">&amp;</span></code> like <code class="highlight"><span class="n">basic_string</span><span class="o">::</span><span class="n">append</span></code>? Should <code class="highlight"><span class="n">vector</span></code> have <code class="highlight"><span class="n">append</span></code>?? 
-     <p><strong>A:</strong> Depends on the name. See bike-shedding below. </p>
-    <p></p>
+    <li> It would be useful to add a discussion of the tradeoffs between implicit
+     lifetime types and default initialization. 
    </ul>
    <h2 class="heading settled" data-level="6" id="wording"><span class="secno">6. </span><span class="content">Wording</span><a class="self-link" href="#wording"></a></h2>
    <h3 class="heading settled" data-level="6.1" id="requirements"><span class="secno">6.1. </span><span class="content">[<strong>allocator.requirements</strong>]</span><a class="self-link" href="#requirements"></a></h3>
@@ -1984,9 +1975,9 @@ void pop_back();
     </ol>
    </blockquote>
    <h2 class="heading settled" data-level="7" id="acknowledgments"><span class="secno">7. </span><span class="content">Acknowledgments</span><a class="self-link" href="#acknowledgments"></a></h2>
-   <p>Special thanks go to <strong>Glen Fernandes</strong> for early comments and help with
-wording. Thanks also for early comments from <strong>Nevin Liber</strong> and <strong>Mathias
-Stearn</strong>. <strong>Agustín Bergé</strong> and <strong>Arthur O’Dwyer</strong> provided guidance on object
+   <p>Special thanks go to <strong>Glen Fernandes</strong> and <strong>Mathias Stearn</strong> for early
+comments and help with wording. Thanks also for early comments from <strong>Nevin
+Liber</strong>, <strong>Agustín Bergé</strong> and <strong>Arthur O’Dwyer</strong> provided guidance on object
 lifetime and allocator interactions.</p>
   </main>
 <script>
