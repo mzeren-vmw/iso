@@ -1,0 +1,2175 @@
+<!doctype html><html lang="en">
+ <head>
+  <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+  <meta content="width=device-width, initial-scale=1, shrink-to-fit=no" name="viewport">
+  <title>P1010R1: Container support for implicit lifetime types</title>
+<style data-fill-with="stylesheet">/******************************************************************************
+ *                   Style sheet for the W3C specifications                   *
+ *
+ * Special classes handled by this style sheet include:
+ *
+ * Indices
+ *   - .toc for the Table of Contents (<ol class="toc">)
+ *     + <span class="secno"> for the section numbers
+ *   - #toc for the Table of Contents (<nav id="toc">)
+ *   - ul.index for Indices (<a href="#ref">term</a><span>, in §N.M</span>)
+ *   - table.index for Index Tables (e.g. for properties or elements)
+ *
+ * Structural Markup
+ *   - table.data for general data tables
+ *     -> use 'scope' attribute, <colgroup>, <thead>, and <tbody> for best results !
+ *     -> use <table class='complex data'> for extra-complex tables
+ *     -> use <td class='long'> for paragraph-length cell content
+ *     -> use <td class='pre'> when manual line breaks/indentation would help readability
+ *   - dl.switch for switch statements
+ *   - ol.algorithm for algorithms (helps to visualize nesting)
+ *   - .figure and .caption (HTML4) and figure and figcaption (HTML5)
+ *     -> .sidefigure for right-floated figures
+ *   - ins/del
+ *
+ * Code
+ *   - pre and code
+ *
+ * Special Sections
+ *   - .note       for informative notes             (div, p, span, aside, details)
+ *   - .example    for informative examples          (div, p, pre, span)
+ *   - .issue      for issues                        (div, p, span)
+ *   - .assertion  for assertions                    (div, p, span)
+ *   - .advisement for loud normative statements     (div, p, strong)
+ *   - .annoying-warning for spec obsoletion notices (div, aside, details)
+ *
+ * Definition Boxes
+ *   - pre.def   for WebIDL definitions
+ *   - table.def for tables that define other entities (e.g. CSS properties)
+ *   - dl.def    for definition lists that define other entitles (e.g. HTML elements)
+ *
+ * Numbering
+ *   - .secno for section numbers in .toc and headings (<span class='secno'>3.2</span>)
+ *   - .marker for source-inserted example/figure/issue numbers (<span class='marker'>Issue 4</span>)
+ *   - ::before styled for CSS-generated issue/example/figure numbers:
+ *     -> Documents wishing to use this only need to add
+ *        figcaption::before,
+ *        .caption::before { content: "Figure "  counter(figure) " ";  }
+ *        .example::before { content: "Example " counter(example) " "; }
+ *        .issue::before   { content: "Issue "   counter(issue) " ";   }
+ *
+ * Header Stuff (ignore, just don't conflict with these classes)
+ *   - .head for the header
+ *   - .copyright for the copyright
+ *
+ * Miscellaneous
+ *   - .overlarge for things that should be as wide as possible, even if
+ *     that overflows the body text area. This can be used on an item or
+ *     on its container, depending on the effect desired.
+ *     Note that this styling basically doesn't help at all when printing,
+ *     since A4 paper isn't much wider than the max-width here.
+ *     It's better to design things to fit into a narrower measure if possible.
+ *   - js-added ToC jump links (see fixup.js)
+ *
+ ******************************************************************************/
+
+/******************************************************************************/
+/*                                   Body                                     */
+/******************************************************************************/
+
+	body {
+		counter-reset: example figure issue;
+
+		/* Layout */
+		max-width: 50em;               /* limit line length to 50em for readability   */
+		margin: 0 auto;                /* center text within page                     */
+		padding: 1.6em 1.5em 2em 50px; /* assume 16px font size for downlevel clients */
+		padding: 1.6em 1.5em 2em calc(26px + 1.5em); /* leave space for status flag     */
+
+		/* Typography */
+		line-height: 1.5;
+		font-family: sans-serif;
+		widows: 2;
+		orphans: 2;
+		word-wrap: break-word;
+		overflow-wrap: break-word;
+		hyphens: auto;
+
+		/* Colors */
+		color: black;
+		background: white top left fixed no-repeat;
+		background-size: 25px auto;
+	}
+
+
+/******************************************************************************/
+/*                         Front Matter & Navigation                          */
+/******************************************************************************/
+
+/** Header ********************************************************************/
+
+	div.head { margin-bottom: 1em }
+	div.head hr { border-style: solid; }
+
+	div.head h1 {
+		font-weight: bold;
+		margin: 0 0 .1em;
+		font-size: 220%;
+	}
+
+	div.head h2 { margin-bottom: 1.5em;}
+
+/** W3C Logo ******************************************************************/
+
+	.head .logo {
+		float: right;
+		margin: 0.4rem 0 0.2rem .4rem;
+	}
+
+	.head img[src*="logos/W3C"] {
+		display: block;
+		border: solid #1a5e9a;
+		border-width: .65rem .7rem .6rem;
+		border-radius: .4rem;
+		background: #1a5e9a;
+		color: white;
+		font-weight: bold;
+	}
+
+	.head a:hover > img[src*="logos/W3C"],
+	.head a:focus > img[src*="logos/W3C"] {
+		opacity: .8;
+	}
+
+	.head a:active > img[src*="logos/W3C"] {
+		background: #c00;
+		border-color: #c00;
+	}
+
+	/* see also additional rules in Link Styling section */
+
+/** Copyright *****************************************************************/
+
+	p.copyright,
+	p.copyright small { font-size: small }
+
+/** Back to Top / ToC Toggle **************************************************/
+
+	@media print {
+		#toc-nav {
+			display: none;
+		}
+	}
+	@media not print {
+		#toc-nav {
+			position: fixed;
+			z-index: 2;
+			bottom: 0; left: 0;
+			margin: 0;
+			min-width: 1.33em;
+			border-top-right-radius: 2rem;
+			box-shadow: 0 0 2px;
+			font-size: 1.5em;
+			color: black;
+		}
+		#toc-nav > a {
+			display: block;
+			white-space: nowrap;
+
+			height: 1.33em;
+			padding: .1em 0.3em;
+			margin: 0;
+
+			background: white;
+			box-shadow: 0 0 2px;
+			border: none;
+			border-top-right-radius: 1.33em;
+			background: white;
+		}
+		#toc-nav > #toc-jump {
+			padding-bottom: 2em;
+			margin-bottom: -1.9em;
+		}
+
+		#toc-nav > a:hover,
+		#toc-nav > a:focus {
+			background: #f8f8f8;
+		}
+		#toc-nav > a:not(:hover):not(:focus) {
+			color: #707070;
+		}
+
+		/* statusbar gets in the way on keyboard focus; remove once browsers fix */
+		#toc-nav > a[href="#toc"]:not(:hover):focus:last-child {
+			padding-bottom: 1.5rem;
+		}
+
+		#toc-nav:not(:hover) > a:not(:focus) > span + span {
+			/* Ideally this uses :focus-within on #toc-nav */
+			display: none;
+		}
+		#toc-nav > a > span + span {
+			padding-right: 0.2em;
+		}
+
+		#toc-toggle-inline {
+			vertical-align: 0.05em;
+			font-size: 80%;
+			color: gray;
+			color: hsla(203,20%,40%,.7);
+			border-style: none;
+			background: transparent;
+			position: relative;
+		}
+		#toc-toggle-inline:hover:not(:active),
+		#toc-toggle-inline:focus:not(:active) {
+			text-shadow: 1px 1px silver;
+			top: -1px;
+			left: -1px;
+		}
+
+		#toc-nav :active {
+			color: #C00;
+		}
+	}
+
+/** ToC Sidebar ***************************************************************/
+
+	/* Floating sidebar */
+	@media screen {
+		body.toc-sidebar #toc {
+			position: fixed;
+			top: 0; bottom: 0;
+			left: 0;
+			width: 23.5em;
+			max-width: 80%;
+			max-width: calc(100% - 2em - 26px);
+			overflow: auto;
+			padding: 0 1em;
+			padding-left: 42px;
+			padding-left: calc(1em + 26px);
+			background: inherit;
+			background-color: #f7f8f9;
+			z-index: 1;
+			box-shadow: -.1em 0 .25em rgba(0,0,0,.1) inset;
+		}
+		body.toc-sidebar #toc h2 {
+			margin-top: .8rem;
+			font-variant: small-caps;
+			font-variant: all-small-caps;
+			text-transform: lowercase;
+			font-weight: bold;
+			color: gray;
+			color: hsla(203,20%,40%,.7);
+		}
+		body.toc-sidebar #toc-jump:not(:focus) {
+			width: 0;
+			height: 0;
+			padding: 0;
+			position: absolute;
+			overflow: hidden;
+		}
+	}
+	/* Hide main scroller when only the ToC is visible anyway */
+	@media screen and (max-width: 28em) {
+		body.toc-sidebar {
+			overflow: hidden;
+		}
+	}
+
+	/* Sidebar with its own space */
+	@media screen and (min-width: 78em) {
+		body:not(.toc-inline) #toc {
+			position: fixed;
+			top: 0; bottom: 0;
+			left: 0;
+			width: 23.5em;
+			overflow: auto;
+			padding: 0 1em;
+			padding-left: 42px;
+			padding-left: calc(1em + 26px);
+			background: inherit;
+			background-color: #f7f8f9;
+			z-index: 1;
+			box-shadow: -.1em 0 .25em rgba(0,0,0,.1) inset;
+		}
+		body:not(.toc-inline) #toc h2 {
+			margin-top: .8rem;
+			font-variant: small-caps;
+			font-variant: all-small-caps;
+			text-transform: lowercase;
+			font-weight: bold;
+			color: gray;
+			color: hsla(203,20%,40%,.7);
+		}
+
+		body:not(.toc-inline) {
+			padding-left: 29em;
+		}
+		/* See also Overflow section at the bottom */
+
+		body:not(.toc-inline) #toc-jump:not(:focus) {
+			width: 0;
+			height: 0;
+			padding: 0;
+			position: absolute;
+			overflow: hidden;
+		}
+	}
+	@media screen and (min-width: 90em) {
+		body:not(.toc-inline) {
+			margin: 0 4em;
+		}
+	}
+
+/******************************************************************************/
+/*                                Sectioning                                  */
+/******************************************************************************/
+
+/** Headings ******************************************************************/
+
+	h1, h2, h3, h4, h5, h6, dt {
+		page-break-after: avoid;
+		page-break-inside: avoid;
+		font: 100% sans-serif;   /* Reset all font styling to clear out UA styles */
+		font-family: inherit;    /* Inherit the font family. */
+		line-height: 1.2;        /* Keep wrapped headings compact */
+		hyphens: manual;         /* Hyphenated headings look weird */
+	}
+
+	h2, h3, h4, h5, h6 {
+		margin-top: 3rem;
+	}
+
+	h1, h2, h3 {
+		color: #005A9C;
+		background: transparent;
+	}
+
+	h1 { font-size: 170%; }
+	h2 { font-size: 140%; }
+	h3 { font-size: 120%; }
+	h4 { font-weight: bold; }
+	h5 { font-style: italic; }
+	h6 { font-variant: small-caps; }
+	dt { font-weight: bold; }
+
+/** Subheadings ***************************************************************/
+
+	h1 + h2,
+	#subtitle {
+		/* #subtitle is a subtitle in an H2 under the H1 */
+		margin-top: 0;
+	}
+	h2 + h3,
+	h3 + h4,
+	h4 + h5,
+	h5 + h6 {
+		margin-top: 1.2em; /* = 1 x line-height */
+	}
+
+/** Section divider ***********************************************************/
+
+	:not(.head) > hr {
+		font-size: 1.5em;
+		text-align: center;
+		margin: 1em auto;
+		height: auto;
+		border: transparent solid 0;
+		background: transparent;
+	}
+	:not(.head) > hr::before {
+		content: "\2727\2003\2003\2727\2003\2003\2727";
+	}
+
+/******************************************************************************/
+/*                            Paragraphs and Lists                            */
+/******************************************************************************/
+
+	p {
+		margin: 1em 0;
+	}
+
+	dd > p:first-child,
+	li > p:first-child {
+		margin-top: 0;
+	}
+
+	ul, ol {
+		margin-left: 0;
+		padding-left: 2em;
+	}
+
+	li {
+		margin: 0.25em 0 0.5em;
+		padding: 0;
+	}
+
+	dl dd {
+		margin: 0 0 .5em 2em;
+	}
+
+	.head dd + dd { /* compact for header */
+		margin-top: -.5em;
+	}
+
+	/* Style for algorithms */
+	ol.algorithm ol:not(.algorithm),
+	.algorithm > ol ol:not(.algorithm) {
+	 border-left: 0.5em solid #DEF;
+	}
+
+	/* Put nice boxes around each algorithm. */
+	[data-algorithm]:not(.heading) {
+	  padding: .5em;
+	  border: thin solid #ddd; border-radius: .5em;
+	  margin: .5em calc(-0.5em - 1px);
+	}
+	[data-algorithm]:not(.heading) > :first-child {
+	  margin-top: 0;
+	}
+	[data-algorithm]:not(.heading) > :last-child {
+	  margin-bottom: 0;
+	}
+
+	/* Style for switch/case <dl>s */
+	dl.switch > dd > ol.only,
+	dl.switch > dd > .only > ol {
+	 margin-left: 0;
+	}
+	dl.switch > dd > ol.algorithm,
+	dl.switch > dd > .algorithm > ol {
+	 margin-left: -2em;
+	}
+	dl.switch {
+	 padding-left: 2em;
+	}
+	dl.switch > dt {
+	 text-indent: -1.5em;
+	 margin-top: 1em;
+	}
+	dl.switch > dt + dt {
+	 margin-top: 0;
+	}
+	dl.switch > dt::before {
+	 content: '\21AA';
+	 padding: 0 0.5em 0 0;
+	 display: inline-block;
+	 width: 1em;
+	 text-align: right;
+	 line-height: 0.5em;
+	}
+
+/** Terminology Markup ********************************************************/
+
+
+/******************************************************************************/
+/*                                 Inline Markup                              */
+/******************************************************************************/
+
+/** Terminology Markup ********************************************************/
+	dfn   { /* Defining instance */
+		font-weight: bolder;
+	}
+	a > i { /* Instance of term */
+		font-style: normal;
+	}
+	dt dfn code, code.idl {
+		font-size: medium;
+	}
+	dfn var {
+		font-style: normal;
+	}
+
+/** Change Marking ************************************************************/
+
+	del { color: red;  text-decoration: line-through; }
+	ins { color: #080; text-decoration: underline;    }
+
+/** Miscellaneous improvements to inline formatting ***************************/
+
+	sup {
+		vertical-align: super;
+		font-size: 80%
+	}
+
+/******************************************************************************/
+/*                                    Code                                    */
+/******************************************************************************/
+
+/** General monospace/pre rules ***********************************************/
+
+	pre, code, samp {
+		font-family: Menlo, Consolas, "DejaVu Sans Mono", Monaco, monospace;
+		font-size: .9em;
+		page-break-inside: avoid;
+		hyphens: none;
+		text-transform: none;
+	}
+	pre code,
+	code code {
+		font-size: 100%;
+	}
+
+	pre {
+		margin-top: 1em;
+		margin-bottom: 1em;
+		overflow: auto;
+	}
+
+/** Inline Code fragments *****************************************************/
+
+  /* Do something nice. */
+
+/******************************************************************************/
+/*                                    Links                                   */
+/******************************************************************************/
+
+/** General Hyperlinks ********************************************************/
+
+	/* We hyperlink a lot, so make it less intrusive */
+	a[href] {
+		color: #034575;
+		text-decoration: none;
+		border-bottom: 1px solid #707070;
+		/* Need a bit of extending for it to look okay */
+		padding: 0 1px 0;
+		margin: 0 -1px 0;
+	}
+	a:visited {
+		border-bottom-color: #BBB;
+	}
+
+	/* Use distinguishing colors when user is interacting with the link */
+	a[href]:focus,
+	a[href]:hover {
+		background: #f8f8f8;
+		background: rgba(75%, 75%, 75%, .25);
+		border-bottom-width: 3px;
+		margin-bottom: -2px;
+	}
+	a[href]:active {
+		color: #C00;
+		border-color: #C00;
+	}
+
+	/* Backout above styling for W3C logo */
+	.head .logo,
+	.head .logo a {
+		border: none;
+		text-decoration: none;
+		background: transparent;
+	}
+
+/******************************************************************************/
+/*                                    Images                                  */
+/******************************************************************************/
+
+	img {
+		border-style: none;
+	}
+
+	/* For autogen numbers, add
+	   .caption::before, figcaption::before { content: "Figure " counter(figure) ". "; }
+	*/
+
+	figure, .figure, .sidefigure {
+		page-break-inside: avoid;
+		text-align: center;
+		margin: 2.5em 0;
+	}
+	.figure img,    .sidefigure img,    figure img,
+	.figure object, .sidefigure object, figure object {
+		max-width: 100%;
+		margin: auto;
+	}
+	.figure pre, .sidefigure pre, figure pre {
+		text-align: left;
+		display: table;
+		margin: 1em auto;
+	}
+	.figure table, figure table {
+		margin: auto;
+	}
+	@media screen and (min-width: 20em) {
+		.sidefigure {
+			float: right;
+			width: 50%;
+			margin: 0 0 0.5em 0.5em
+		}
+	}
+	.caption, figcaption, caption {
+		font-style: italic;
+		font-size: 90%;
+	}
+	.caption::before, figcaption::before, figcaption > .marker {
+		font-weight: bold;
+	}
+	.caption, figcaption {
+		counter-increment: figure;
+	}
+
+	/* DL list is indented 2em, but figure inside it is not */
+	dd > .figure, dd > figure { margin-left: -2em }
+
+/******************************************************************************/
+/*                             Colored Boxes                                  */
+/******************************************************************************/
+
+	.issue, .note, .example, .assertion, .advisement, blockquote {
+		padding: .5em;
+		border: .5em;
+		border-left-style: solid;
+		page-break-inside: avoid;
+	}
+	span.issue, span.note {
+		padding: .1em .5em .15em;
+		border-right-style: solid;
+	}
+
+	.issue,
+	.note,
+	.example,
+	.advisement,
+	.assertion,
+	blockquote {
+		margin: 1em auto;
+	}
+	.note  > p:first-child,
+	.issue > p:first-child,
+	blockquote > :first-child {
+		margin-top: 0;
+	}
+	blockquote > :last-child {
+		margin-bottom: 0;
+	}
+
+/** Blockquotes ***************************************************************/
+
+	blockquote {
+		border-color: silver;
+	}
+
+/** Open issue ****************************************************************/
+
+	.issue {
+		border-color: #E05252;
+		background: #FBE9E9;
+		counter-increment: issue;
+		overflow: auto;
+	}
+	.issue::before, .issue > .marker {
+		text-transform: uppercase;
+		color: #AE1E1E;
+		padding-right: 1em;
+		text-transform: uppercase;
+	}
+	/* Add .issue::before { content: "Issue " counter(issue) " "; } for autogen numbers,
+	   or use class="marker" to mark up the issue number in source. */
+
+/** Example *******************************************************************/
+
+	.example {
+		border-color: #E0CB52;
+		background: #FCFAEE;
+		counter-increment: example;
+		overflow: auto;
+		clear: both;
+	}
+	.example::before, .example > .marker {
+		text-transform: uppercase;
+		color: #827017;
+		min-width: 7.5em;
+		display: block;
+	}
+	/* Add .example::before { content: "Example " counter(example) " "; } for autogen numbers,
+	   or use class="marker" to mark up the example number in source. */
+
+/** Non-normative Note ********************************************************/
+
+	.note {
+		border-color: #52E052;
+		background: #E9FBE9;
+		overflow: auto;
+	}
+
+	.note::before, .note > .marker,
+	details.note > summary::before,
+	details.note > summary > .marker {
+		text-transform: uppercase;
+		display: block;
+		color: hsl(120, 70%, 30%);
+	}
+	/* Add .note::before { content: "Note"; } for autogen label,
+	   or use class="marker" to mark up the label in source. */
+
+	details.note > summary {
+		display: block;
+		color: hsl(120, 70%, 30%);
+	}
+	details.note[open] > summary {
+		border-bottom: 1px silver solid;
+	}
+
+/** Assertion Box *************************************************************/
+	/*  for assertions in algorithms */
+
+	.assertion {
+		border-color: #AAA;
+		background: #EEE;
+	}
+
+/** Advisement Box ************************************************************/
+	/*  for attention-grabbing normative statements */
+
+	.advisement {
+		border-color: orange;
+		border-style: none solid;
+		background: #FFEECC;
+	}
+	strong.advisement {
+		display: block;
+		text-align: center;
+	}
+	.advisement > .marker {
+		color: #B35F00;
+	}
+
+/** Spec Obsoletion Notice ****************************************************/
+	/* obnoxious obsoletion notice for older/abandoned specs. */
+
+	details {
+		display: block;
+	}
+	summary {
+		font-weight: bolder;
+	}
+
+	.annoying-warning:not(details),
+	details.annoying-warning:not([open]) > summary,
+	details.annoying-warning[open] {
+		background: #fdd;
+		color: red;
+		font-weight: bold;
+		padding: .75em 1em;
+		border: thick red;
+		border-style: solid;
+		border-radius: 1em;
+	}
+	.annoying-warning :last-child {
+		margin-bottom: 0;
+	}
+
+@media not print {
+	details.annoying-warning[open] {
+		position: fixed;
+		left: 1em;
+		right: 1em;
+		bottom: 1em;
+		z-index: 1000;
+	}
+}
+
+	details.annoying-warning:not([open]) > summary {
+		text-align: center;
+	}
+
+/** Entity Definition Boxes ***************************************************/
+
+	.def {
+		padding: .5em 1em;
+		background: #DEF;
+		margin: 1.2em 0;
+		border-left: 0.5em solid #8CCBF2;
+	}
+
+/******************************************************************************/
+/*                                    Tables                                  */
+/******************************************************************************/
+
+	th, td {
+		text-align: left;
+		text-align: start;
+	}
+
+/** Property/Descriptor Definition Tables *************************************/
+
+	table.def {
+		/* inherits .def box styling, see above */
+		width: 100%;
+		border-spacing: 0;
+	}
+
+	table.def td,
+	table.def th {
+		padding: 0.5em;
+		vertical-align: baseline;
+		border-bottom: 1px solid #bbd7e9;
+	}
+
+	table.def > tbody > tr:last-child th,
+	table.def > tbody > tr:last-child td {
+		border-bottom: 0;
+	}
+
+	table.def th {
+		font-style: italic;
+		font-weight: normal;
+		padding-left: 1em;
+		width: 3em;
+	}
+
+	/* For when values are extra-complex and need formatting for readability */
+	table td.pre {
+		white-space: pre-wrap;
+	}
+
+	/* A footnote at the bottom of a def table */
+	table.def           td.footnote {
+		padding-top: 0.6em;
+	}
+	table.def           td.footnote::before {
+		content: " ";
+		display: block;
+		height: 0.6em;
+		width: 4em;
+		border-top: thin solid;
+	}
+
+/** Data tables (and properly marked-up index tables) *************************/
+	/*
+		 <table class="data"> highlights structural relationships in a table
+		 when correct markup is used (e.g. thead/tbody, th vs. td, scope attribute)
+
+		 Use class="complex data" for particularly complicated tables --
+		 (This will draw more lines: busier, but clearer.)
+
+		 Use class="long" on table cells with paragraph-like contents
+		 (This will adjust text alignment accordingly.)
+		 Alternately use class="longlastcol" on tables, to have the last column assume "long".
+	*/
+
+	table {
+		word-wrap: normal;
+		overflow-wrap: normal;
+		hyphens: manual;
+	}
+
+	table.data,
+	table.index {
+		margin: 1em auto;
+		border-collapse: collapse;
+		border: hidden;
+		width: 100%;
+	}
+	table.data caption,
+	table.index caption {
+		max-width: 50em;
+		margin: 0 auto 1em;
+	}
+
+	table.data td,  table.data th,
+	table.index td, table.index th {
+		padding: 0.5em 1em;
+		border-width: 1px;
+		border-color: silver;
+		border-top-style: solid;
+	}
+
+	table.data thead td:empty {
+		padding: 0;
+		border: 0;
+	}
+
+	table.data  thead,
+	table.index thead,
+	table.data  tbody,
+	table.index tbody {
+		border-bottom: 2px solid;
+	}
+
+	table.data colgroup,
+	table.index colgroup {
+		border-left: 2px solid;
+	}
+
+	table.data  tbody th:first-child,
+	table.index tbody th:first-child  {
+		border-right: 2px solid;
+		border-top: 1px solid silver;
+		padding-right: 1em;
+	}
+
+	table.data th[colspan],
+	table.data td[colspan] {
+		text-align: center;
+	}
+
+	table.complex.data th,
+	table.complex.data td {
+		border: 1px solid silver;
+		text-align: center;
+	}
+
+	table.data.longlastcol td:last-child,
+	table.data td.long {
+	 vertical-align: baseline;
+	 text-align: left;
+	}
+
+	table.data img {
+		vertical-align: middle;
+	}
+
+
+/*
+Alternate table alignment rules
+
+	table.data,
+	table.index {
+		text-align: center;
+	}
+
+	table.data  thead th[scope="row"],
+	table.index thead th[scope="row"] {
+		text-align: right;
+	}
+
+	table.data  tbody th:first-child,
+	table.index tbody th:first-child  {
+		text-align: right;
+	}
+
+Possible extra rowspan handling
+
+	table.data  tbody th[rowspan]:not([rowspan='1']),
+	table.index tbody th[rowspan]:not([rowspan='1']),
+	table.data  tbody td[rowspan]:not([rowspan='1']),
+	table.index tbody td[rowspan]:not([rowspan='1']) {
+		border-left: 1px solid silver;
+	}
+
+	table.data  tbody th[rowspan]:first-child,
+	table.index tbody th[rowspan]:first-child,
+	table.data  tbody td[rowspan]:first-child,
+	table.index tbody td[rowspan]:first-child{
+		border-left: 0;
+		border-right: 1px solid silver;
+	}
+*/
+
+/******************************************************************************/
+/*                                  Indices                                   */
+/******************************************************************************/
+
+
+/** Table of Contents *********************************************************/
+
+	.toc a {
+		/* More spacing; use padding to make it part of the click target. */
+		padding-top: 0.1rem;
+		/* Larger, more consistently-sized click target */
+		display: block;
+		/* Reverse color scheme */
+		color: black;
+		border-color: #3980B5;
+		border-bottom-width: 3px !important;
+		margin-bottom: 0px !important;
+	}
+	.toc a:visited {
+		border-color: #054572;
+	}
+	.toc a:not(:focus):not(:hover) {
+		/* Allow colors to cascade through from link styling */
+		border-bottom-color: transparent;
+	}
+
+	.toc, .toc ol, .toc ul, .toc li {
+		list-style: none; /* Numbers must be inlined into source */
+		/* because generated content isn't search/selectable and markers can't do multilevel yet */
+		margin:  0;
+		padding: 0;
+		line-height: 1.1rem; /* consistent spacing */
+	}
+
+	/* ToC not indented until third level, but font style & margins show hierarchy */
+	.toc > li             { font-weight: bold;   }
+	.toc > li li          { font-weight: normal; }
+	.toc > li li li       { font-size:   95%;    }
+	.toc > li li li li    { font-size:   90%;    }
+	.toc > li li li li .secno { font-size: 85%; }
+	.toc > li li li li li { font-size:   85%;    }
+	.toc > li li li li li .secno { font-size: 100%; }
+
+	/* @supports not (display:grid) { */
+		.toc > li             { margin: 1.5rem 0;    }
+		.toc > li li          { margin: 0.3rem 0;    }
+		.toc > li li li       { margin-left: 2rem;   }
+
+		/* Section numbers in a column of their own */
+		.toc .secno {
+			float: left;
+			width: 4rem;
+			white-space: nowrap;
+		}
+
+		.toc li {
+			clear: both;
+		}
+
+		:not(li) > .toc              { margin-left:  5rem; }
+		.toc .secno                  { margin-left: -5rem; }
+		.toc > li li li .secno       { margin-left: -7rem; }
+		.toc > li li li li .secno    { margin-left: -9rem; }
+		.toc > li li li li li .secno { margin-left: -11rem; }
+
+		/* Tighten up indentation in narrow ToCs */
+		@media (max-width: 30em) {
+			:not(li) > .toc              { margin-left:  4rem; }
+			.toc .secno                  { margin-left: -4rem; }
+			.toc > li li li              { margin-left:  1rem; }
+			.toc > li li li .secno       { margin-left: -5rem; }
+			.toc > li li li li .secno    { margin-left: -6rem; }
+			.toc > li li li li li .secno { margin-left: -7rem; }
+		}
+	/* } */
+
+	@supports (display:grid) {
+		/* Use #toc over .toc to override non-@supports rules. */
+		#toc {
+			display: grid;
+			align-content: start;
+			grid-template-columns: auto 1fr;
+			grid-column-gap: 1rem;
+			column-gap: 1rem;
+			grid-row-gap: .6rem;
+			row-gap: .6rem;
+		}
+		#toc h2 {
+			grid-column: 1 / -1;
+			margin-bottom: 0;
+		}
+		#toc ol,
+		#toc li,
+		#toc a {
+			display: contents;
+			/* Switch <a> to subgrid when supported */
+		}
+		#toc span {
+			margin: 0;
+		}
+		#toc > .toc > li > a > span {
+			/* The spans of the top-level list,
+			   comprising the first items of each top-level section. */
+			margin-top: 1.1rem;
+		}
+		#toc#toc .secno { /* Ugh, need more specificity to override base.css */
+			grid-column: 1;
+			width: auto;
+			margin-left: 0;
+		}
+		#toc .content {
+			grid-column: 2;
+			width: auto;
+			margin-right: 1rem;
+		}
+		#toc .content:hover {
+			background: rgba(75%, 75%, 75%, .25);
+			border-bottom: 3px solid #054572;
+			margin-bottom: -3px;
+		}
+		#toc li li li .content {
+			margin-left: 1rem;
+		}
+		#toc li li li li .content {
+			margin-left: 2rem;
+		}
+	}
+
+
+/** Index *********************************************************************/
+
+	/* Index Lists: Layout */
+	ul.index       { margin-left: 0; columns: 15em; text-indent: 1em hanging; }
+	ul.index li    { margin-left: 0; list-style: none; break-inside: avoid; }
+	ul.index li li { margin-left: 1em }
+	ul.index dl    { margin-top: 0; }
+	ul.index dt    { margin: .2em 0 .2em 20px;}
+	ul.index dd    { margin: .2em 0 .2em 40px;}
+	/* Index Lists: Typography */
+	ul.index ul,
+	ul.index dl { font-size: smaller; }
+	@media not print {
+		ul.index li span {
+			white-space: nowrap;
+			color: transparent; }
+		ul.index li a:hover + span,
+		ul.index li a:focus + span {
+			color: #707070;
+		}
+	}
+
+/** Index Tables *****************************************************/
+	/* See also the data table styling section, which this effectively subclasses */
+
+	table.index {
+		font-size: small;
+		border-collapse: collapse;
+		border-spacing: 0;
+		text-align: left;
+		margin: 1em 0;
+	}
+
+	table.index td,
+	table.index th {
+		padding: 0.4em;
+	}
+
+	table.index tr:hover td:not([rowspan]),
+	table.index tr:hover th:not([rowspan]) {
+		background: #f7f8f9;
+	}
+
+	/* The link in the first column in the property table (formerly a TD) */
+	table.index th:first-child a {
+		font-weight: bold;
+	}
+
+/******************************************************************************/
+/*                                    Print                                   */
+/******************************************************************************/
+
+	@media print {
+		/* Pages have their own margins. */
+		html {
+			margin: 0;
+		}
+		/* Serif for print. */
+		body {
+			font-family: serif;
+		}
+	}
+	@page {
+		margin: 1.5cm 1.1cm;
+	}
+
+/******************************************************************************/
+/*                                    Legacy                                  */
+/******************************************************************************/
+
+	/* This rule is inherited from past style sheets. No idea what it's for. */
+	.hide { display: none }
+
+
+
+/******************************************************************************/
+/*                             Overflow Control                               */
+/******************************************************************************/
+
+	.figure .caption, .sidefigure .caption, figcaption {
+		/* in case figure is overlarge, limit caption to 50em */
+		max-width: 50rem;
+		margin-left: auto;
+		margin-right: auto;
+	}
+	.overlarge > table {
+		/* limit preferred width of table */
+		max-width: 50em;
+		margin-left: auto;
+		margin-right: auto;
+	}
+
+	@media (min-width: 55em) {
+		.overlarge {
+			margin-left: calc(13px + 26.5rem - 50vw);
+			margin-right: calc(13px + 26.5rem - 50vw);
+			max-width: none;
+		}
+	}
+	@media screen and (min-width: 78em) {
+		body:not(.toc-inline) .overlarge {
+			/* 30.5em body padding 50em content area */
+			margin-left: calc(40em - 50vw) !important;
+			margin-right: calc(40em - 50vw) !important;
+		}
+	}
+	@media screen and (min-width: 90em) {
+		body:not(.toc-inline) .overlarge {
+			/* 4em html margin 30.5em body padding 50em content area */
+			margin-left: 0 !important;
+			margin-right: calc(84.5em - 100vw) !important;
+		}
+	}
+
+	@media not print {
+		.overlarge {
+			overflow-x: auto;
+			/* See Lea Verou's explanation background-attachment:
+			 * http://lea.verou.me/2012/04/background-attachment-local/
+			 *
+			background: top left  / 4em 100% linear-gradient(to right,  #ffffff, rgba(255, 255, 255, 0)) local,
+			            top right / 4em 100% linear-gradient(to left, #ffffff, rgba(255, 255, 255, 0)) local,
+			            top left  / 1em 100% linear-gradient(to right,  #c3c3c5, rgba(195, 195, 197, 0)) scroll,
+			            top right / 1em 100% linear-gradient(to left, #c3c3c5, rgba(195, 195, 197, 0)) scroll,
+			            white;
+			background-repeat: no-repeat;
+			*/
+		}
+	}
+</style>
+<style type="text/css">
+    table, th, td {
+      border: 1px solid black;
+      border-collapse: collapse;
+      vertical-align: top;
+    }
+    th, td {
+      border-left: none;
+      border-right: none;
+      padding: 0px 10px;
+    }
+    th {
+      text-align: center;
+    }
+  </style>
+  <meta content="Bikeshed version 47cb5324cd11789aef12f220cf86d1780f94ab9c" name="generator">
+  <link href="http://wg21.link/p1010r1" rel="canonical">
+  <link href="https://isocpp.org/favicon.ico" rel="icon">
+<style>/* style-md-lists */
+
+/* This is a weird hack for me not yet following the commonmark spec
+   regarding paragraph and lists. */
+[data-md] > :first-child {
+    margin-top: 0;
+}
+[data-md] > :last-child {
+    margin-bottom: 0;
+}</style>
+<style>/* style-counters */
+
+body {
+    counter-reset: example figure issue;
+}
+.issue {
+    counter-increment: issue;
+}
+.issue:not(.no-marker)::before {
+    content: "Issue " counter(issue);
+}
+
+.example {
+    counter-increment: example;
+}
+.example:not(.no-marker)::before {
+    content: "Example " counter(example);
+}
+.invalid.example:not(.no-marker)::before,
+.illegal.example:not(.no-marker)::before {
+    content: "Invalid Example" counter(example);
+}
+
+figcaption {
+    counter-increment: figure;
+}
+figcaption:not(.no-marker)::before {
+    content: "Figure " counter(figure) " ";
+}</style>
+<style>/* style-syntax-highlighting */
+
+.highlight:not(.idl) { background: hsl(24, 20%, 95%); }
+code.highlight { padding: .1em; border-radius: .3em; }
+pre.highlight, pre > code.highlight { display: block; padding: 1em; margin: .5em 0; overflow: auto; border-radius: 0; }
+c-[a] { color: #990055 } /* Keyword.Declaration */
+c-[b] { color: #990055 } /* Keyword.Type */
+c-[c] { color: #708090 } /* Comment */
+c-[d] { color: #708090 } /* Comment.Multiline */
+c-[e] { color: #0077aa } /* Name.Attribute */
+c-[f] { color: #669900 } /* Name.Tag */
+c-[g] { color: #222222 } /* Name.Variable */
+c-[k] { color: #990055 } /* Keyword */
+c-[l] { color: #000000 } /* Literal */
+c-[m] { color: #000000 } /* Literal.Number */
+c-[n] { color: #0077aa } /* Name */
+c-[o] { color: #999999 } /* Operator */
+c-[p] { color: #999999 } /* Punctuation */
+c-[s] { color: #a67f59 } /* Literal.String */
+c-[t] { color: #a67f59 } /* Literal.String.Single */
+c-[u] { color: #a67f59 } /* Literal.String.Double */
+c-[cp] { color: #708090 } /* Comment.Preproc */
+c-[c1] { color: #708090 } /* Comment.Single */
+c-[cs] { color: #708090 } /* Comment.Special */
+c-[kc] { color: #990055 } /* Keyword.Constant */
+c-[kn] { color: #990055 } /* Keyword.Namespace */
+c-[kp] { color: #990055 } /* Keyword.Pseudo */
+c-[kr] { color: #990055 } /* Keyword.Reserved */
+c-[ld] { color: #000000 } /* Literal.Date */
+c-[nc] { color: #0077aa } /* Name.Class */
+c-[no] { color: #0077aa } /* Name.Constant */
+c-[nd] { color: #0077aa } /* Name.Decorator */
+c-[ni] { color: #0077aa } /* Name.Entity */
+c-[ne] { color: #0077aa } /* Name.Exception */
+c-[nf] { color: #0077aa } /* Name.Function */
+c-[nl] { color: #0077aa } /* Name.Label */
+c-[nn] { color: #0077aa } /* Name.Namespace */
+c-[py] { color: #0077aa } /* Name.Property */
+c-[ow] { color: #999999 } /* Operator.Word */
+c-[mb] { color: #000000 } /* Literal.Number.Bin */
+c-[mf] { color: #000000 } /* Literal.Number.Float */
+c-[mh] { color: #000000 } /* Literal.Number.Hex */
+c-[mi] { color: #000000 } /* Literal.Number.Integer */
+c-[mo] { color: #000000 } /* Literal.Number.Oct */
+c-[sb] { color: #a67f59 } /* Literal.String.Backtick */
+c-[sc] { color: #a67f59 } /* Literal.String.Char */
+c-[sd] { color: #a67f59 } /* Literal.String.Doc */
+c-[se] { color: #a67f59 } /* Literal.String.Escape */
+c-[sh] { color: #a67f59 } /* Literal.String.Heredoc */
+c-[si] { color: #a67f59 } /* Literal.String.Interpol */
+c-[sx] { color: #a67f59 } /* Literal.String.Other */
+c-[sr] { color: #a67f59 } /* Literal.String.Regex */
+c-[ss] { color: #a67f59 } /* Literal.String.Symbol */
+c-[vc] { color: #0077aa } /* Name.Variable.Class */
+c-[vg] { color: #0077aa } /* Name.Variable.Global */
+c-[vi] { color: #0077aa } /* Name.Variable.Instance */
+c-[il] { color: #000000 } /* Literal.Number.Integer.Long */
+</style>
+<style>/* style-selflinks */
+
+.heading, .issue, .note, .example, li, dt {
+    position: relative;
+}
+a.self-link {
+    position: absolute;
+    top: 0;
+    left: calc(-1 * (3.5rem - 26px));
+    width: calc(3.5rem - 26px);
+    height: 2em;
+    text-align: center;
+    border: none;
+    transition: opacity .2s;
+    opacity: .5;
+}
+a.self-link:hover {
+    opacity: 1;
+}
+.heading > a.self-link {
+    font-size: 83%;
+}
+li > a.self-link {
+    left: calc(-1 * (3.5rem - 26px) - 2em);
+}
+dfn > a.self-link {
+    top: auto;
+    left: auto;
+    opacity: 0;
+    width: 1.5em;
+    height: 1.5em;
+    background: gray;
+    color: white;
+    font-style: normal;
+    transition: opacity .2s, background-color .2s, color .2s;
+}
+dfn:hover > a.self-link {
+    opacity: 1;
+}
+dfn > a.self-link:hover {
+    color: black;
+}
+
+a.self-link::before            { content: "¶"; }
+.heading > a.self-link::before { content: "§"; }
+dfn > a.self-link::before      { content: "#"; }</style>
+<style>/* style-autolinks */
+
+.css.css, .property.property, .descriptor.descriptor {
+    color: #005a9c;
+    font-size: inherit;
+    font-family: inherit;
+}
+.css::before, .property::before, .descriptor::before {
+    content: "‘";
+}
+.css::after, .property::after, .descriptor::after {
+    content: "’";
+}
+.property, .descriptor {
+    /* Don't wrap property and descriptor names */
+    white-space: nowrap;
+}
+.type { /* CSS value <type> */
+    font-style: italic;
+}
+pre .property::before, pre .property::after {
+    content: "";
+}
+[data-link-type="property"]::before,
+[data-link-type="propdesc"]::before,
+[data-link-type="descriptor"]::before,
+[data-link-type="value"]::before,
+[data-link-type="function"]::before,
+[data-link-type="at-rule"]::before,
+[data-link-type="selector"]::before,
+[data-link-type="maybe"]::before {
+    content: "‘";
+}
+[data-link-type="property"]::after,
+[data-link-type="propdesc"]::after,
+[data-link-type="descriptor"]::after,
+[data-link-type="value"]::after,
+[data-link-type="function"]::after,
+[data-link-type="at-rule"]::after,
+[data-link-type="selector"]::after,
+[data-link-type="maybe"]::after {
+    content: "’";
+}
+
+[data-link-type].production::before,
+[data-link-type].production::after,
+.prod [data-link-type]::before,
+.prod [data-link-type]::after {
+    content: "";
+}
+
+[data-link-type=element],
+[data-link-type=element-attr] {
+    font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    font-size: .9em;
+}
+[data-link-type=element]::before { content: "<" }
+[data-link-type=element]::after  { content: ">" }
+
+[data-link-type=biblio] {
+    white-space: pre;
+}</style>
+ <body class="h-entry">
+  <div class="head">
+   <p data-fill-with="logo"></p>
+   <h1 class="p-name no-ref" id="title">P1010R1<br>Container support for implicit lifetime types</h1>
+   <h2 class="no-num no-toc no-ref heading settled" id="subtitle"><span class="content">Draft Proposal, <time class="dt-updated" datetime="2018-10-08">2018-10-08</time></span></h2>
+   <div data-fill-with="spec-metadata">
+    <dl>
+     <dt>This version:
+     <dd><a class="u-url" href="http://wg21.link/p1010r1">http://wg21.link/p1010r1</a>
+     <dt>Authors:
+     <dd>
+      <dd class="editor p-author h-card vcard"><a class="p-name fn u-email email" href="mailto:mzeren@vmware.com">Mark Zeren</a> (<span class="p-org org">VMware</span>)
+     <dd>
+      <dd class="editor p-author h-card vcard"><a class="p-name fn u-email email" href="mailto:ckennelly@google.com">Chris Kennelly</a> (<span class="p-org org">Google</span>)
+     <dt>Audience:
+     <dd>LEWG, LWG
+     <dt>Project:
+     <dd>ISO/IEC JTC1/SC22/WG21 14882: Programming Language — C++
+     <dt>Source:
+     <dd><a href="https://github.com/mzeren-vmw/iso/blob/master/resize/p1010r1.bs">https://github.com/mzeren-vmw/iso/blob/master/resize/p1010r1.bs</a>
+    </dl>
+   </div>
+   <div data-fill-with="warning"></div>
+   <hr title="Separator for header">
+  </div>
+  <div class="p-summary" data-fill-with="abstract">
+   <h2 class="no-num no-toc no-ref heading settled" id="abstract"><span class="content">Abstract</span></h2>
+   <p>Extend allocators, <code class="highlight"><c- n>allocator_traits</c-></code>, and <code class="highlight"><c- n>vector</c-></code> to allow efficient addition of elements of <em>implicit lifetime</em> type.</p>
+  </div>
+  <nav data-fill-with="table-of-contents" id="toc">
+   <h2 class="no-num no-toc no-ref" id="contents">Table of Contents</h2>
+   <ol class="toc" role="directory">
+    <li>
+     <a href="#summary"><span class="secno">1</span> <span class="content">Summary</span></a>
+     <ol class="toc">
+      <li><a href="#approach"><span class="secno">1.1</span> <span class="content">Approach</span></a>
+     </ol>
+    <li>
+     <a href="#history"><span class="secno">2</span> <span class="content">Revision History</span></a>
+     <ol class="toc">
+      <li><a href="#r1"><span class="secno">2.1</span> <span class="content">R0 → R1</span></a>
+     </ol>
+    <li>
+     <a href="#motivation"><span class="secno">3</span> <span class="content">Motivating examples</span></a>
+     <ol class="toc">
+      <li><a href="#network"><span class="secno">3.1</span> <span class="content">Example: reading from the network</span></a>
+      <li><a href="#example-stamping-a-pattern"><span class="secno">3.2</span> <span class="content">Example: stamping a pattern</span></a>
+     </ol>
+    <li>
+     <a href="#related"><span class="secno">4</span> <span class="content">Related work</span></a>
+     <ol class="toc">
+      <li><a href="#google"><span class="secno">4.1</span> <span class="content">Google <code class="highlight"><c- n>basic_string</c-></code></span></a>
+      <li><a href="#boost"><span class="secno">4.2</span> <span class="content">Boost containers</span></a>
+      <li><a href="#mongodb"><span class="secno">4.3</span> <span class="content">MongoDB</span></a>
+      <li><a href="#vmware"><span class="secno">4.4</span> <span class="content">VMware string builders</span></a>
+      <li><a href="#std-proposals"><span class="secno">4.5</span> <span class="content">Discussion on std-proposals</span></a>
+      <li><a href="#p1020r0"><span class="secno">4.6</span> <span class="content">P1020R0</span></a>
+     </ol>
+    <li>
+     <a href="#alternatives"><span class="secno">5</span> <span class="content">Alternatives Considered</span></a>
+     <ol class="toc">
+      <li><a href="#free"><span class="secno">5.1</span> <span class="content">Free function <code class="highlight"><c- n>std</c-><c- o>::</c-><c- n>implicit_construct</c-></code></span></a>
+      <li><a href="#insert_from_capacity"><span class="secno">5.2</span> <span class="content"><code class="highlight"><c- n>insert_from_capacity</c-></code></span></a>
+      <li><a href="#implicit_construct"><span class="secno">5.3</span> <span class="content"><code class="highlight"><c- n>implicit_construct</c-></code></span></a>
+      <li><a href="#uninitialized_data"><span class="secno">5.4</span> <span class="content"><code class="highlight"><c- n>uninitialized_data</c-></code></span></a>
+     </ol>
+    <li><a href="#issues"><span class="secno">6</span> <span class="content">Open Issues</span></a>
+    <li>
+     <a href="#wording"><span class="secno">7</span> <span class="content">Wording</span></a>
+     <ol class="toc">
+      <li><a href="#requirements"><span class="secno">7.1</span> <span class="content">[<strong>allocator.requirements</strong>]</span></a>
+      <li><a href="#traits"><span class="secno">7.2</span> <span class="content">[<strong>allocator.traits</strong>]</span></a>
+      <li><a href="#general"><span class="secno">7.3</span> <span class="content">[<strong>container.requirements.general</strong>]</span></a>
+      <li><a href="#vector"><span class="secno">7.4</span> <span class="content">[<strong>vector</strong>]</span></a>
+     </ol>
+    <li><a href="#acknowledgments"><span class="secno">8</span> <span class="content">Acknowledgments</span></a>
+    <li>
+     <a href="#references"><span class="secno"></span> <span class="content">References</span></a>
+     <ol class="toc">
+      <li><a href="#informative"><span class="secno"></span> <span class="content">Informative References</span></a>
+     </ol>
+   </ol>
+  </nav>
+  <main>
+   <hr>
+   <blockquote> ... there is a family of types for which programmers <br> assume they do not need to explicitly create objects ... <br> </blockquote>
+    <a data-link-type="biblio" href="#biblio-p0593r2">[P0593R2]</a> 
+   <hr>
+   <h2 class="heading settled" data-level="1" id="summary"><span class="secno">1. </span><span class="content">Summary</span><a class="self-link" href="#summary"></a></h2>
+   <p><a data-link-type="biblio" href="#biblio-p0593r2">[P0593R2]</a> Gives us defined behavior for creating objects from raw, application
+initialized, memory. These <em>implicit lifetime</em> types include:</p>
+   <blockquote>
+    <ul>
+     <li> Scalar types 
+     <li> Array types (with any element type) 
+     <li> Class types with a trivial destructor and a trivial constructor (of any
+     kind) 
+    </ul>
+   </blockquote>
+   <p>When working with implicit lifetime types applications may be able to bulk
+initialize objects without value initialization (zeroing) or explicit calls to
+constructors. For example, the application may read objects from the network, or
+it may stamp out a pattern of objects, etc.. This proposal enables these
+optimizations for allocator aware containers, and extends <code class="highlight"><c- n>vector</c-></code> to allow
+them. Prior work in this area has relied on trivial default construction.
+However, <a data-link-type="biblio" href="#biblio-p0593r2">[P0593R2]</a> allows class types with <em>non-trivial</em> default constructors
+that have trivial move or copy constructors to be implicit lifetime types. This
+proposal includes this alternate set of types. Default construction typically
+leaves indeterminate values in elements controlled by the <code class="highlight"><c- n>vector</c-></code>, exposing it
+to undefined behavior until the application initializes all such elements. This
+proposal avoids this "trap state" for the container by not incorporating
+elements into the container until they have been initialized.</p>
+   <p>We have proposed related changes to <code class="highlight"><c- n>basic_string</c-></code> in a separate paper <a data-link-type="biblio" href="#biblio-p1072r1">[P1072R1]</a>.</p>
+   <h3 class="heading settled" data-level="1.1" id="approach"><span class="secno">1.1. </span><span class="content">Approach</span><a class="self-link" href="#approach"></a></h3>
+   <p>Allocator aware containers must cooperate with their allocator for object
+construction and destruction. Working with the broader set of implicit lifetime
+types requires that the container use a two step interaction with the
+application. First, the container exposes memory that the application
+initializes. Second, the application tells the container how many objects were
+initialized. The container can then tell the allocator about the newly created
+objects.</p>
+   <p>References and wording are relative to <a data-link-type="biblio" href="#biblio-n4762">[N4762]</a>.</p>
+   <p>Starting with [<strong>allocator.requirements</strong>] (Table 33), we add:</p>
+   <ul>
+    <li> <code class="highlight"><c- n>a</c-><c- p>.</c-><c- n>implicit_construct</c-><c- p>(</c-><c- n>c</c-><c- p>)</c-></code> - This expression informs the allocator <em>post
+     facto</em> of an object of implicit lifetime type that has been initialized and
+     implicitly created by the application. This member function, if provided,
+     does not participate in overload resolution unless <code class="highlight"><c- n>C</c-></code> is an implicit
+     lifetime type. By default it does nothing. 
+   </ul>
+   <p>Then in [<strong>allocator.traits</strong>] we add a new <em>optional</em> member:</p>
+   <ul>
+    <li>
+      <code class="highlight"><c- n>implicit_construct</c-><c- p>(</c-><c- n>Alloc</c-><c- o>&amp;</c-> <c- n>a</c-><c- p>,</c-> <c- n>T</c-><c- o>*</c-> <c- n>p</c-><c- p>)</c-></code> - This member function: 
+     <ul>
+      <li> Calls <code class="highlight"><c- n>a</c-><c- p>.</c-><c- n>implicit_construct</c-><c- p>(</c-><c- n>p</c-><c- p>)</c-></code> if it is well-formed, otherwise ... 
+      <li> Does nothing if T is an implicit lifetime type and <code class="highlight"><c- n>a</c-><c- p>.</c-><c- n>construct</c-><c- p>(</c-><c- n>p</c-><c- p>)</c-></code> is <em>not</em> well-formed, otherwise ... 
+      <li> Does not participate in overload resolution.
+     </ul>
+     <p>(The intent is to leave the meaning of allocators which define <code class="highlight"><c- n>construct</c-><c- p>(</c-><c- n>T</c-><c- o>*</c-><c- p>)</c-></code> unchanged, but to allow those that don’t, including the
+     default allocator, to support <code class="highlight"><c- n>implicit_construct</c-></code> implicitly.)</p>
+   </ul>
+   <p>Finally, in [<strong>vector</strong>] we add two member functions:</p>
+   <ul>
+    <li>
+      <code class="highlight"><c- n>T</c-><c- o>*</c-> <c- n>uninitialized_data</c-><c- p>()</c-></code> - Returns a pointer to storage that
+     would back elements [<code class="highlight"><c- n>size</c-><c- p>()</c-></code>, <code class="highlight"><c- n>capacity</c-><c- p>()</c-></code>). Note
+     that this storage may contain indeterminate values ([<strong>dcl.init</strong>]p12). The
+     application may initialize the memory by casting to <code class="highlight"><c- b>void</c-><c- o>*</c-></code> and then to <code class="highlight"><c- b>char</c-><c- o>*</c-></code>, <code class="highlight"><c- b>unsigned</c-> <c- b>char</c-><c- o>*</c-></code>, or <code class="highlight"><c- n>std</c-><c- o>::</c-><c- n>byte</c-><c- o>*</c-></code>. ([<strong>basic.life</strong>]p6.4). 
+     <p>Does not participate in overload resolution if <code class="highlight"><c- n>allocator_traits</c-><c- o>&lt;</c-><c- n>Allocator</c-><c- o>>::</c-><c- n>rebind_traits</c-><c- o>&lt;</c-><c- n>U</c-><c- o>>::</c-><c- n>implicit_construct</c-><c- p>(</c-><c- n>U</c-> <c- o>*</c-><c- p>)</c-></code> is
+     not well-formed.</p>
+    <li>
+      <code class="highlight"><c- n>insert_from_capacity</c-><c- p>(</c-><c- n>size_type</c-> <c- n>n</c-><c- p>)</c-></code> - Appends <code class="highlight"><c- n>n</c-></code> elements from capacity. The application must have initialized the storage
+     backing these elements otherwise the behavior is undefined. 
+     <p>Does not participate in overload resolution if <code class="highlight"><c- n>allocator_traits</c-><c- o>&lt;</c-><c- n>Allocator</c-><c- o>>::</c-><c- n>rebind_traits</c-><c- o>&lt;</c-><c- n>U</c-><c- o>>::</c-><c- n>implicit_construct</c-><c- p>(</c-><c- n>U</c-> <c- o>*</c-><c- p>)</c-></code> is
+     not well-formed.</p>
+   </ul>
+   <h2 class="heading settled" data-level="2" id="history"><span class="secno">2. </span><span class="content">Revision History</span><a class="self-link" href="#history"></a></h2>
+   <h3 class="heading settled" data-level="2.1" id="r1"><span class="secno">2.1. </span><span class="content">R0 → R1</span><a class="self-link" href="#r1"></a></h3>
+   <ul>
+    <li> Rebased on <a data-link-type="biblio" href="#biblio-n4762">[N4762]</a>.
+    <li> Updated reference to <span>[P1072]</span>. 
+   </ul>
+   <h2 class="heading settled" data-level="3" id="motivation"><span class="secno">3. </span><span class="content">Motivating examples</span><a class="self-link" href="#motivation"></a></h2>
+   <p>The extra overhead described in the examples below is often small, yet the
+optimization can be significant in performance critical execution paths.</p>
+   <p>Casts, using declarations, and other details have been elided to keep the
+examples simple.</p>
+   <h3 class="heading settled" data-level="3.1" id="network"><span class="secno">3.1. </span><span class="content">Example: reading from the network</span><a class="self-link" href="#network"></a></h3>
+   <p>The current <code class="highlight"><c- n>vector</c-></code> interface forces a copy when reading objects from the
+network, or a file, etc.. (<code class="highlight"><c- n>std</c-><c- o>::</c-><c- n>byte</c-></code> keeps the example simple, but the
+principle applies to user defined implicit lifetime types as well.):</p>
+<pre class="highlight"><c- k>using</c-> <c- n>ByteVec</c-> <c- o>=</c-> <c- n>vector</c-><c- o>&lt;</c-><c- n>byte</c-><c- o>></c-><c- p>;</c->
+
+<c- k>class</c-> <c- nc>Socket</c-> <c- p>{</c->
+<c- k>public</c-><c- o>:</c->
+  <c- b>size_t</c-> <c- n>Read</c-><c- p>(</c-><c- n>byte</c-><c- o>*</c-> <c- n>buf</c-><c- p>,</c-> <c- b>size_t</c-> <c- n>size</c-><c- p>);</c->
+  <c- p>...</c->
+<c- p>};</c->
+
+<c- b>unsigned</c-> <c- nf>ReadSome</c-><c- p>(</c-><c- n>ByteVec</c-><c- o>*</c-> <c- n>out</c-><c- p>,</c-> <c- n>Socket</c-><c- o>&amp;</c-> <c- n>socket</c-><c- p>)</c->
+<c- p>{</c->
+  <c- n>byte</c-> <c- n>buf</c-><c- p>[</c-><c- n>kBufferSize</c-><c- p>];</c->
+  <c- k>auto</c-> <c- n>size</c-> <c- o>=</c-> <c- n>socket</c-><c- p>.</c-><c- n>Read</c-><c- p>(</c-><c- o>&amp;</c-><c- n>buf</c-><c- p>[</c-><c- mi>0</c-><c- p>],</c-> <c- n>kBufferSize</c-><c- p>);</c->
+  <c- n>out</c-><c- o>-></c-><c- n>insert</c-><c- p>(</c-><c- n>out</c-><c- p>.</c-><c- n>end</c-><c- p>(),</c-> <c- o>&amp;</c-><c- n>buff</c-><c- p>[</c-><c- mi>0</c-><c- p>],</c-> <c- o>&amp;</c-><c- n>buff</c-><c- p>[</c-><c- mi>0</c-><c- p>]</c-> <c- o>+</c-> <c- n>size</c-><c- p>);</c-> <c- c1>// BAD: Copies.</c->
+  <c- k>return</c-> <c- n>size</c-><c- p>;</c->
+<c- p>}</c->
+</pre>
+   <p>With the changes proposed in this paper, the above example would be optimized
+as:</p>
+<pre class="highlight"><c- b>unsigned</c-> <c- nf>ReadSome</c-><c- p>(</c-><c- n>ByteVec</c-><c- o>*</c-> <c- n>out</c-><c- p>,</c-> <c- n>Socket</c-><c- o>&amp;</c-> <c- n>socket</c-><c- p>)</c->
+<c- p>{</c->
+  <c- n>out</c-><c- p>.</c-><c- n>reserve</c-><c- p>(</c-><c- n>out</c-><c- p>.</c-><c- n>size</c-><c- p>()</c-> <c- o>+</c-> <c- n>kBufferSize</c-><c- p>);</c->
+  <c- k>auto</c-> <c- n>size</c-> <c- o>=</c-> <c- n>socket</c-><c- p>.</c-><c- n>Read</c-><c- p>(</c-><c- n>out</c-><c- o>-></c-><c- n>uninitialized_data</c-><c- p>(),</c->    <c- c1>// GOOD: No copies.</c->
+                          <c- n>data</c-><c- p>.</c-><c- n>capacity</c-><c- p>()</c-> <c- o>-</c-> <c- n>data</c-><c- p>.</c-><c- n>size</c-><c- p>());</c->
+  <c- n>out</c-><c- o>-></c-><c- n>insert_from_capacity</c-><c- p>(</c-><c- n>size</c-><c- p>);</c->                      <c- c1>// GOOD: No-op.</c->
+  <c- k>return</c-> <c- n>size</c-><c- p>;</c->
+<c- p>}</c->
+</pre>
+   <p class="note" role="note"><span>Note:</span> <code class="highlight"><c- n>reserve</c-></code> bypasses <code class="highlight"><c- n>vector</c-></code>'s normal growth algorithm which can
+lead to unnecessary allocations. Resolving that issue is out of scope for
+this proposal.</p>
+   <h3 class="heading settled" data-level="3.2" id="example-stamping-a-pattern"><span class="secno">3.2. </span><span class="content">Example: stamping a pattern</span><a class="self-link" href="#example-stamping-a-pattern"></a></h3>
+   <p>For a second example, consider stamping a repeating pattern of elements. <code class="highlight"><c- n>vector</c-></code>'s interface offers two options, neither optimal:</p>
+   <ol>
+    <li> Call <strong><code class="highlight"><c- n>resize</c-></code></strong> and write directly into the
+     container. However, this <em>value initializes</em> elements, typically writing
+     zeros: 
+<pre class="highlight"><c- k>using</c-> <c- n>IntVec</c-> <c- o>=</c-> <c- n>vector</c-><c- o>&lt;</c-><c- b>int</c-><c- o>></c-><c- p>;</c->
+
+<c- b>void</c-> <c- nf>AppendPattern</c-><c- p>(</c-><c- n>IntVec</c-><c- o>&amp;</c-> <c- n>out</c-><c- p>,</c-> <c- n>span</c-><c- o>&lt;</c-><c- k>const</c-> <c- b>int</c-><c- o>></c-> <c- n>pattern</c-><c- p>,</c-> <c- b>unsigned</c-> <c- n>count</c-><c- p>)</c->
+<c- p>{</c->
+  <c- k>auto</c-> <c- n>start</c-> <c- o>=</c-> <c- n>out</c-><c- p>.</c-><c- n>size</c-><c- p>();</c->
+  <c- k>auto</c-> <c- n>step</c-> <c- o>=</c-> <c- n>pattern</c-><c- p>.</c-><c- n>size</c-><c- p>();</c->
+  <c- n>out</c-><c- p>.</c-><c- n>resize</c-><c- p>(</c-><c- n>start</c-> <c- o>+</c-> <c- n>step</c-> <c- o>*</c-> <c- n>count</c-><c- p>);</c->    <c- c1>// BAD: Zeros.</c->
+  <c- k>for</c-> <c- p>(</c-><c- k>auto</c-> <c- n>cur</c-> <c- o>=</c-> <c- n>out</c-><c- p>.</c-><c- n>begin</c-><c- p>()</c-> <c- o>+</c-> <c- n>start</c-><c- p>;</c->
+       <c- n>cur</c-> <c- o>&lt;</c-> <c- n>out</c-><c- p>.</c-><c- n>end</c-><c- p>();</c-> <c- n>cur</c-> <c- o>+=</c-> <c- n>step</c-><c- p>)</c-> <c- p>{</c->
+    <c- n>memcpy</c-><c- p>(</c-><c- o>&amp;*</c-><c- n>cur</c-><c- p>,</c-> <c- n>pattern</c-><c- p>.</c-><c- n>data</c-><c- p>(),</c->      <c- c1>// GOOD: No bookkeeping.</c->
+           <c- n>step</c-> <c- o>*</c-> <c- k>sizeof</c-><c- p>(</c-><c- b>int</c-><c- p>)));</c->
+  <c- p>}</c->
+<c- p>}</c->
+</pre>
+    <li> Call <strong><code class="highlight"><c- n>reserve</c-></code></strong> and then <code class="highlight"><c- n>insert</c-></code> in
+     a loop. However, this incurs bookkeeping overhead in each insert: 
+<pre class="highlight"><c- b>void</c-> <c- nf>AppendPattern</c-><c- p>(</c-><c- n>IntVec</c-><c- o>&amp;</c-> <c- n>out</c-><c- p>,</c-> <c- n>span</c-><c- o>&lt;</c-><c- k>const</c-> <c- b>int</c-><c- o>></c-> <c- n>pattern</c-><c- p>,</c-> <c- b>unsigned</c-> <c- n>count</c-><c- p>)</c->
+<c- p>{</c->
+  <c- n>out</c-><c- p>.</c-><c- n>reserve</c-><c- p>(</c-><c- n>out</c-><c- p>.</c-><c- n>size</c-><c- p>()</c-> <c- o>+</c-> <c- n>pattern</c-><c- p>.</c-><c- n>size</c-><c- p>()</c-> <c- o>*</c-> <c- n>count</c-><c- p>);</c-> <c- c1>// GOOD: No zeros.</c->
+  <c- k>for</c-> <c- p>(</c-><c- b>unsigned</c-> <c- n>i</c-> <c- o>=</c-> <c- mi>0</c-><c- p>;</c-> <c- n>i</c-> <c- o>&lt;</c-> <c- n>count</c-><c- p>;</c-> <c- o>++</c-><c- n>i</c-><c- p>)</c-> <c- p>{</c->
+    <c- n>out</c-><c- p>.</c-><c- n>insert</c-><c- p>(</c-><c- n>out</c-><c- p>.</c-><c- n>end</c-><c- p>(),</c-> <c- n>pattern</c-><c- p>.</c-><c- n>begin</c-><c- p>(),</c->          <c- c1>// BAD: Bookkeeping.</c->
+               <c- n>pattern</c-><c- p>.</c-><c- n>end</c-><c- p>());</c->
+  <c- p>}</c->
+<c- p>}</c->
+</pre>
+   </ol>
+   <p>With the changes proposed in this paper the above example would be optimized
+as:</p>
+   <ol>
+<pre class="highlight"><c- b>void</c-> <c- nf>AppendPattern</c-><c- p>(</c-><c- n>IntVec</c-><c- o>&amp;</c-> <c- n>out</c-><c- p>,</c-> <c- n>span</c-><c- o>&lt;</c-><c- k>const</c-> <c- b>int</c-><c- o>></c-> <c- n>pattern</c-><c- p>,</c-> <c- b>unsigned</c-> <c- n>count</c-><c- p>)</c->
+<c- p>{</c->
+  <c- k>auto</c-> <c- n>step</c-> <c- o>=</c-> <c- n>pattern</c-><c- p>.</c-><c- n>size</c-><c- p>();</c->
+  <c- k>auto</c-> <c- n>total</c-> <c- o>=</c-> <c- n>step</c-> <c- o>*</c-> <c- n>count</c-><c- p>;</c->
+  <c- n>out</c-><c- p>.</c-><c- n>reserve</c-><c- p>(</c-><c- n>out</c-><c- p>.</c-><c- n>size</c-><c- p>()</c-> <c- o>+</c-> <c- n>total</c-><c- p>);</c->     <c- c1>// GOOD: No zeros.</c->
+  <c- b>int</c-><c- o>*</c-> <c- n>cur</c-> <c- o>=</c-> <c- n>out</c-><c- p>.</c-><c- n>uninitialized_data</c-><c- p>();</c->
+  <c- b>int</c-><c- o>*</c-> <c- n>end</c-> <c- o>=</c-> <c- n>cur</c-> <c- o>+</c-> <c- n>total</c-><c- p>;</c->
+  <c- k>for</c-> <c- p>(;</c-><c- n>cur</c-> <c- o>&lt;</c-> <c- n>end</c-><c- p>;</c-> <c- n>cur</c-> <c- o>+=</c-> <c- n>step</c-><c- p>)</c-> <c- p>{</c->
+    <c- n>memcpy</c-><c- p>(</c-><c- n>cur</c-><c- p>,</c-> <c- n>pattern</c-><c- p>.</c-><c- n>data</c-><c- p>(),</c->        <c- c1>// GOOD: No bookkeeping.</c->
+           <c- n>step</c-> <c- o>*</c-> <c- k>sizeof</c-><c- p>(</c-><c- b>int</c-><c- p>)));</c->
+  <c- p>}</c->
+  <c- n>out</c-><c- p>.</c-><c- n>insert_from_capacity</c-><c- p>(</c-><c- n>total</c-><c- p>);</c->     <c- c1>// GOOD: No-op.</c->
+<c- p>}</c->
+</pre>
+   </ol>
+   <h2 class="heading settled" data-level="4" id="related"><span class="secno">4. </span><span class="content">Related work</span><a class="self-link" href="#related"></a></h2>
+   <p>As mentioned above, all related work to date has used default initialization.
+This is the first proposal that uses implicit lifetime types.</p>
+   <h3 class="heading settled" data-level="4.1" id="google"><span class="secno">4.1. </span><span class="content">Google <code class="highlight"><c- n>basic_string</c-></code></span><a class="self-link" href="#google"></a></h3>
+   <p>Google has hacked their internal <code class="highlight"><c- n>basic_string</c-></code> implementation to
+provide a related <code class="highlight"><c- n>resize_uninitialized</c-></code> API. They have measured performance
+improvements (that are not public) that justify maintaining this extension.</p>
+   <p>Google’s Abseil open source library provides hooks for other users that want to
+independently apply the same hack. See: <a href="https://github.com/abseil/abseil-cpp/blob/master/absl/strings/internal/resize_uninitialized.h"> https://github.com/abseil/abseil-cpp/blob/master/absl/strings/internal/resize_uninitialized.h</a></p>
+   <p>Google’s Protocol Buffers open source library takes advantage of Abseil’s hooks
+to improve performance. See: <a href="https://github.com/google/protobuf/blob/master/src/google/protobuf/stubs/stl_util.h#L61"> https://github.com/google/protobuf/blob/master/src/google/protobuf/stubs/stl_util.h#L61</a></p>
+   <p>The Snappy compression library has hooks for a similar hack:<br> <a href="https://github.com/google/snappy/search?q=STLStringResizeUninitialized"> https://github.com/google/snappy/search?q=STLStringResizeUninitialized</a></p>
+   <p>Tensor Flow does too:<br> <a href="https://github.com/tensorflow/tensorflow/search?q=STLStringResizeUninitialized"> https://github.com/tensorflow/tensorflow/search?q=STLStringResizeUninitialized</a></p>
+   <h3 class="heading settled" data-level="4.2" id="boost"><span class="secno">4.2. </span><span class="content">Boost containers</span><a class="self-link" href="#boost"></a></h3>
+   <p>Boost provides a related optimization for vector-like containers, introduced in <a href="https://github.com/boostorg/container/commit/14f092ab00def8e692b81d57d0466a617a6f6130"> [SVN r85964] </a> by Ion Gaztañaga.</p>
+   <blockquote>
+<pre class="highlight">Default initialization for vector-like containers
+Complexity guarantees for associative container constructors and ordered input ranges
+Added benchmark for associative containers
+Fixes #9166
+</pre>
+   </blockquote>
+   <p>E.g.: <a href="https://github.com/boostorg/container/blob/develop/include/boost/container/vector.hpp"> boost/container/vector.hpp</a>:</p>
+<pre class="highlight"><c- c1>//! &lt;b>Effects&lt;/b>: Constructs a vector that will use a copy of allocator a</c->
+<c- c1>//!   and inserts n default initialized values.</c->
+<c- c1>//!</c->
+<c- c1>//! &lt;b>Throws&lt;/b>: If allocator_type’s allocation</c->
+<c- c1>//!   throws or T’s default initialization throws.</c->
+<c- c1>//!</c->
+<c- c1>//! &lt;b>Complexity&lt;/b>: Linear to n.</c->
+<c- c1>//!</c->
+<c- c1>//! &lt;b>Note&lt;/b>: Non-standard extension</c->
+<c- n>vector</c-><c- p>(</c-><c- n>size_type</c-> <c- n>n</c-><c- p>,</c-> <c- n>default_init_t</c-><c- p>);</c->
+<c- n>vector</c-><c- p>(</c-><c- n>size_type</c-> <c- n>n</c-><c- p>,</c-> <c- n>default_init_t</c-><c- p>,</c-> <c- k>const</c-> <c- n>allocator_type</c-> <c- o>&amp;</c-><c- n>a</c-><c- p>)</c->
+<c- p>...</c->
+<c- b>void</c-> <c- n>resize</c-><c- p>(</c-><c- n>size_type</c-> <c- n>new_size</c-><c- p>,</c-> <c- n>default_init_t</c-><c- p>);</c->
+<c- p>...</c->
+</pre>
+   <p>These optimizations are also supported in Boost Container’s <code class="highlight"><c- n>small_vector</c-></code>, <code class="highlight"><c- n>static_vector</c-></code>, <code class="highlight"><c- n>deque</c-></code>, <code class="highlight"><c- n>stable_vector</c-></code>, and <code class="highlight"><c- n>string</c-></code>.</p>
+   <h3 class="heading settled" data-level="4.3" id="mongodb"><span class="secno">4.3. </span><span class="content">MongoDB</span><a class="self-link" href="#mongodb"></a></h3>
+   <p>MongoDB has a string builder that could have been implemented in terms of <code class="highlight"><c- n>basic_string</c-></code> as a return value. However, as explained by Mathias Stearn, zero
+initialization was measured and was too costly. Instead a custom string builder
+type is used:</p>
+   <p>E.g.: <a href="https://github.com/mongodb/mongo/blob/67da083face9dabdf95a5ffb72d3da675269b4c7/src/mongo/db/fts/unicode/string.h#L128-L143"> https://github.com/mongodb/mongo/blob/master/src/mongo/db/fts/unicode/string.h </a></p>
+<pre class="highlight"><c- d>/**</c->
+<c- d> * Strips diacritics and case-folds the utf8 input string, as needed to support</c->
+<c- d> * options.</c->
+<c- d> *</c->
+<c- d> * The options field specifies what operations to *skip*, so kCaseSensitive</c->
+<c- d> * means to skip case folding and kDiacriticSensitive means to skip diacritic</c->
+<c- d> * striping. If both flags are specified, the input utf8 StringData is returned</c->
+<c- d> * directly without any processing or copying.</c->
+<c- d> *</c->
+<c- d> * If processing is performed, the returned StringData will be placed in buffer.</c->
+<c- d> * buffer’s contents (if any) will be replaced. Since we may return the input</c->
+<c- d> * unmodified the returned StringData’s lifetime is the shorter of the input</c->
+<c- d> * utf8 and the next modification to buffer. The input utf8 must not point into</c->
+<c- d> * buffer.</c->
+<c- d> */</c->
+<c- k>static</c-> <c- n>StringData</c-> <c- nf>caseFoldAndStripDiacritics</c-><c- p>(</c-><c- n>StackBufBuilder</c-><c- o>*</c-> <c- n>buffer</c-><c- p>,</c->
+                                             <c- n>StringData</c-> <c- n>utf8</c-><c- p>,</c->
+                                             <c- n>SubstrMatchOptions</c-> <c- n>options</c-><c- p>,</c->
+                                             <c- n>CaseFoldMode</c-> <c- n>mode</c-><c- p>);</c->
+</pre>
+   <p>(Comments re-wrapped.)</p>
+   <h3 class="heading settled" data-level="4.4" id="vmware"><span class="secno">4.4. </span><span class="content">VMware string builders</span><a class="self-link" href="#vmware"></a></h3>
+   <p>VMware has an internal string builder implementation that avoids <code class="highlight"><c- n>std</c-><c- o>::</c-><c- n>string</c-></code> due, in part, to <code class="highlight"><c- n>reserve</c-></code>’s zero-writing
+behavior. This is similar in spirit to the MongoDB example above.</p>
+   <h3 class="heading settled" data-level="4.5" id="std-proposals"><span class="secno">4.5. </span><span class="content">Discussion on std-proposals</span><a class="self-link" href="#std-proposals"></a></h3>
+   <p>This topic was discussed in 2013 on std-proposals in a thread titled "Add
+basic_string::resize_uninitialized (or a similar mechanism)":<br> <a href="https://groups.google.com/a/isocpp.org/forum/#!topic/std-proposals/XIO4KbBTxl0"> https://groups.google.com/a/isocpp.org/forum/#!topic/std-proposals/XIO4KbBTxl0</a></p>
+   <h3 class="heading settled" data-level="4.6" id="p1020r0"><span class="secno">4.6. </span><span class="content">P1020R0</span><a class="self-link" href="#p1020r0"></a></h3>
+    See also <a data-link-type="biblio" href="#biblio-p1020r0">[P1020R0]</a> "Smart pointer creation functions for default initialization". 
+   <h2 class="heading settled" data-level="5" id="alternatives"><span class="secno">5. </span><span class="content">Alternatives Considered</span><a class="self-link" href="#alternatives"></a></h2>
+   <h3 class="heading settled" data-level="5.1" id="free"><span class="secno">5.1. </span><span class="content">Free function <code class="highlight"><c- n>std</c-><c- o>::</c-><c- n>implicit_construct</c-></code></span><a class="self-link" href="#free"></a></h3>
+   <p>This proposal adds an optional member to <code class="highlight"><c- n>std</c-><c- o>::</c-><c- n>allocator_traits</c-></code>. In <a data-link-type="biblio" href="#biblio-p0653r2">[P0653R2]</a>, which added the optional member <code class="highlight"><c- n>std</c-><c- o>::</c-><c- n>pointer_traits</c-><c- o>::</c-><c- n>to_address</c-></code>,
+the author also added a free function <code class="highlight"><c- n>std</c-><c- o>::</c-><c- n>to_address</c-></code>. The free function
+provides uniform access to user specializations of <code class="highlight"><c- n>pointer_traits</c-></code> that do not
+define <code class="highlight"><c- n>to_address</c-></code>. A free function is not necessary or applicable here because
+containers need to directly test for well-formedness of <code class="highlight"><c- n>allocator_traits</c-><c- o>&lt;</c-><c- n>Allocator</c-><c- o>>::</c-><c- n>rebind_traits</c-><c- o>&lt;</c-><c- n>U</c-><c- o>>::</c-><c- n>implicit_construct</c-><c- p>(</c-><c- n>U</c-> <c- o>*</c-><c- p>)</c-></code> to
+correctly enable / disable methods in their interface.</p>
+   <p>Also consider that <code class="highlight"><c- n>allocator_traits</c-></code> is designed to provide uniform operations
+over custom allocators. [<strong>allocator.requirements</strong>]p2 does allow for user
+specialization of <code class="highlight"><c- n>allocator_traits</c-></code>, but do users need this additional
+customization point? Should <code class="highlight"><c- n>allocator_traits</c-></code> have been named <code class="highlight"><c- n>allocator_adapter</c-></code>? Should we discourage or deprecate user specialization?</p>
+   <h3 class="heading settled" data-level="5.2" id="insert_from_capacity"><span class="secno">5.2. </span><span class="content"><code class="highlight"><c- n>insert_from_capacity</c-></code></span><a class="self-link" href="#insert_from_capacity"></a></h3>
+    What name and return type should we use? <br>  
+   <table>
+    <tbody>
+     <tr>
+      <th>Return type
+      <th>Name
+      <th>Comments
+     <tr>
+     <tr>
+      <td><code class="highlight"><c- n>iterator</c-></code>
+      <td><code class="highlight"><c- n>insert_from_capacity</c-><c- p>(</c-><c- n>n</c-><c- p>)</c-></code>
+      <td>as proposed
+     <tr>
+      <td><code class="highlight"><c- n>vector</c-><c- o>&amp;</c-></code>
+      <td><code class="highlight"><c- n>append_from_capacity</c-><c- p>(</c-><c- n>n</c-><c- p>)</c-></code>
+      <td>like <code class="highlight"><c- n>basic_string</c-><c- o>::</c-><c- n>append</c-></code>. <code class="highlight"><c- n>vector</c-></code> does not have <code class="highlight"><c- n>append</c-></code>.
+     <tr>
+      <td><code class="highlight"><c- b>void</c-></code>
+      <td><code class="highlight"><c- n>resize_uninitialized</c-><c- p>(</c-><c- n>new_size</c-><c- p>)</c-></code>
+      <td>but the elements <em>are</em> initialized
+     <tr>
+      <td><code class="highlight"><c- b>void</c-></code>
+      <td><code class="highlight"><c- n>resize_from_capacity</c-><c- p>(</c-><c- n>new_size</c-><c- p>)</c-></code>
+      <td><code class="highlight"><c- n>resize</c-></code> implies / is associated with reallocation, but this operation
+    cannot reallocate
+     <tr>
+      <td><code class="highlight"><c- b>void</c-></code>
+      <td><code class="highlight"><c- n>extend</c-><c- p>(</c-><c- n>n</c-><c- p>)</c-></code>, <code class="highlight"><c- n>grow</c-><c- p>(</c-><c- n>n</c-><c- p>)</c-></code>, etc.
+      <td>some new term...
+   </table>
+   <h3 class="heading settled" data-level="5.3" id="implicit_construct"><span class="secno">5.3. </span><span class="content"><code class="highlight"><c- n>implicit_construct</c-></code></span><a class="self-link" href="#implicit_construct"></a></h3>
+    What name should we use? <br>  
+   <table>
+    <tbody>
+     <tr>
+      <th>Return type
+      <th>Name
+      <th>Comments
+     <tr>
+     <tr>
+      <td><code class="highlight"><c- b>void</c-></code>
+      <td><code class="highlight"><c- n>implicit_construct</c-><c- p>(</c-><c- n>T</c-> <c- o>*</c-><c- p>)</c-></code>
+      <td>as proposed
+     <tr>
+      <td><code class="highlight"><c- b>void</c-></code>
+      <td><code class="highlight"><c- n>bless</c-><c- p>(</c-><c- n>T</c-> <c- o>*</c-><c- p>)</c-></code>
+      <td>From <a data-link-type="biblio" href="#biblio-p0593r2">[P0593R2]</a>.
+   </table>
+   <h3 class="heading settled" data-level="5.4" id="uninitialized_data"><span class="secno">5.4. </span><span class="content"><code class="highlight"><c- n>uninitialized_data</c-></code></span><a class="self-link" href="#uninitialized_data"></a></h3>
+   <p>What name and return type should we use? <br> </p>
+   <table>
+    <tbody>
+     <tr>
+      <th>Return type
+      <th>Name
+      <th>Comments
+     <tr>
+     <tr>
+      <td><code class="highlight"><c- n>T</c-><c- o>*</c-></code>
+      <td><code class="highlight"><c- n>uninitialized_data</c-><c- p>()</c-></code>
+      <td>as proposed
+     <tr>
+      <td><code class="highlight"><c- n>span</c-><c- o>&lt;</c-><c- n>T</c-><c- o>></c-></code>
+      <td><code class="highlight"><c- n>uninitialized_data</c-><c- p>()</c-></code>
+      <td> Nevin commented: the current proposal makes <code class="highlight"><c- n>capacity</c-><c- p>()</c-></code> a salient property
+     of <code class="highlight"><c- n>vector</c-></code> and that that may be unsirable from the LEWG point of view.
+     Mathias suggested returning <code class="highlight"><c- n>span</c-><c- o>&lt;</c-><c- n>T</c-><c- o>></c-></code>.
+   </table>
+   <h2 class="heading settled" data-level="6" id="issues"><span class="secno">6. </span><span class="content">Open Issues</span><a class="self-link" href="#issues"></a></h2>
+   <ul>
+    <li>
+      <strong>Q:</strong> Can <code class="highlight"><c- n>implicit_construct</c-></code> throw? 
+     <p><strong>A:</strong> Yes.</p>
+    <p></p>
+    <li> It would be useful to add a discussion of the tradeoffs between implicit
+     lifetime types and default initialization. 
+   </ul>
+   <h2 class="heading settled" data-level="7" id="wording"><span class="secno">7. </span><span class="content">Wording</span><a class="self-link" href="#wording"></a></h2>
+   <h3 class="heading settled" data-level="7.1" id="requirements"><span class="secno">7.1. </span><span class="content">[<strong>allocator.requirements</strong>]</span><a class="self-link" href="#requirements"></a></h3>
+   <p>In [<strong>allocator.requirements</strong>] Table 33 add the <code class="highlight"><c- n>a</c-><c- p>.</c-><c- n>implicit_construct</c-><c- p>(</c-><c- n>c</c-><c- p>)</c-></code> expression:</p>
+   <blockquote>
+    <table>
+     <tbody>
+      <tr>
+       <th>Expression
+       <th>Return type
+       <th>Assertion/note <br> pre-/post-condition
+       <th>Default
+      <tr>
+       <td>...
+      <tr>
+       <td><code>a.construct(c, args)</code>
+       <td>(not used)
+       <td><em>Effects:</em> Constructs an object of type <code>C</code> at <code>c</code>
+       <td><code>::new((void*)c) C(forward<args>(args)...)</args></code>
+      <tr>
+       <td>
+        <ins><code>a.implicit_construct(c)</code></ins>
+       <td>
+        <ins>(not used)</ins>
+       <td>
+        <ins><em>Effects:</em> Informs the allocator that an object of type <code> C </code> has been implicitly created at <code> c</code>. Only participates in overload resolution if <code> C </code> is an <em>implicit lifetime</em> type.</ins>
+       <td>
+        <ins>Does nothing</ins>
+      <tr>
+       <td><code>a.destroy(c)</code>
+       <td>(not used)
+       <td><em>Effects:</em> Destroys the object at <code>c</code>
+       <td><code>c->~C()</code>
+    </table>
+     ... 
+   </blockquote>
+   <p>And then in [<strong>allocator.requirements</strong>]p9 add references to <code class="highlight"><c- n>implicit_construct</c-></code>:</p>
+   <blockquote>
+    <ol start="9">
+     <li>
+       An allocator may constrain the types on which it can be instantiated and
+     the arguments for which its <code>construct</code>
+      <ins>, <code>implicit_construct</code>,</ins>
+       or <code> destroy</code> members may be called. If a type cannot be used with a
+     particular allocator, the allocator class or the call to <code> construct</code>
+      <ins>, <code> implicit_construct </code>,</ins>
+       or <code> destroy</code> may fail to
+     instantiate. 
+    </ol>
+   </blockquote>
+   <h3 class="heading settled" data-level="7.2" id="traits"><span class="secno">7.2. </span><span class="content">[<strong>allocator.traits</strong>]</span><a class="self-link" href="#traits"></a></h3>
+   <p class="note" role="note"><span>Note:</span> Following the pattern of <code class="highlight"><c- n>pointer_traits</c-><c- o>::</c-><c- n>to_address</c-></code> we do not add <code class="highlight"><c- n>implicit_construct</c-></code> to the synopsis in [<strong>allocator.traits</strong>]. Placing it there
+would make it a required member of <code class="highlight"><c- n>allocator_traits</c-></code> which would break existing
+user specializations.</p>
+   <p>Add a new § 19.10.9.3:</p>
+   <blockquote>
+    <ins>
+     <p><strong>19.10.9.3 Allocator traits optional static member functions
+      [allocator.traits.optmem]</strong></p>
+<pre>template&lt;class T, class... Args>
+  static void implicit_construct(Alloc&amp; a, T* p);
+</pre>
+     <ol>
+      <li> <em>Effects:</em> Calls <code>a.implicit_construct(p)</code> if that
+     call is well-formed; otherwise, does nothing if <code>T</code> is an <em>implicit lifetime</em> type and <code>a.construct(p)</code> is <em>not</em> well-formed; otherwise, does not participate in overload
+     resolution.
+     </ol>
+    </ins>
+   </blockquote>
+   <h3 class="heading settled" data-level="7.3" id="general"><span class="secno">7.3. </span><span class="content">[<strong>container.requirements.general</strong>]</span><a class="self-link" href="#general"></a></h3>
+   <p>In [<strong>container.requirements.general</strong>]p3 add references to <code class="highlight"><c- n>implicit_construct</c-></code>:</p>
+   <blockquote>
+    <ol start="3">
+     <li>
+       For the components affected by this subclause that declare an <code>allocator_type</code>, objects stored in these components
+     shall be constructed using the function <code> allocator_traits&lt;allocator_type>::rebind_traits&lt;U>::construct </code>
+      <ins> or <code> allocator_traits&lt;allocator_type>::rebind_traits&lt;U>::implicit_construct</code></ins>
+       and destroyed using the function <code> allocator_traits&lt;allocator_type>::rebind_traits&lt;U>::destroy </code> (19.10.9.2), where <code>U</code> is either <code>allocator_type::value_type</code> or an internal type used by
+     the container. These functions are called only for the container’s element
+     type, not for internal types used by the container. [<em>Note:</em> This means,
+     for example, that a node-based container might need to construct nodes
+     containing aligned buffers and call construct to place the element into the
+     buffer. — <em>end note</em> ] 
+    </ol>
+   </blockquote>
+   <h3 class="heading settled" data-level="7.4" id="vector"><span class="secno">7.4. </span><span class="content">[<strong>vector</strong>]</span><a class="self-link" href="#vector"></a></h3>
+   <p>In [<strong>vector.overview</strong>] add the declaration for <code class="highlight"><c- n>insert_from_capacity</c-></code>:</p>
+   <blockquote>
+<pre>namespace std {
+  template&lt;class T, class Allocator = allocator&lt;T>>
+  class vector {
+
+    ...
+
+    <em>// 21.3.11.4, data access</em>
+    T* data() noexcept;
+    const T* data() const noexcept;
+    <ins>T* uninitialized_data() noexcept;</ins>
+
+    <em>// 21.3.11.5, modifiers</em>
+    template&lt;class... Args> reference emplace_back(Args&amp;&amp;... args);
+    void push_back(const T&amp; x);
+    void push_back(T&amp;&amp; x);
+    void pop_back();
+
+    template&lt;class... Args> iterator emplace(const_iterator position, Args&amp;&amp;... args);
+    iterator insert(const_iterator position, const T&amp; x);
+    iterator insert(const_iterator position, T&amp;&amp; x);
+    iterator insert(const_iterator position, size_type n, const T&amp; x);
+    template&lt;class InputIterator>
+      iterator insert(const_iterator position, InputIterator first, InputIterator last);
+    iterator insert(const_iterator position, initializer_list&lt;T> il);
+    <ins>iterator insert_from_capacity(size_type n);</ins>
+    iterator erase(const_iterator position);
+    iterator erase(const_iterator first, const_iterator last);
+
+    ...
+</pre>
+   </blockquote>
+   <p>In [<strong>vector.data</strong>] add new p3-5:</p>
+   <blockquote>
+<pre>T*         data() noexcept;
+const T*   data() const noexcept;
+</pre>
+    <ol>
+     <li> <em>Returns:</em> A pointer such that <code>[data(), data() +
+     size())</code> is a valid range. For a non-empty vector, <code> data() == addressof(front())</code>. 
+     <li> <em>Complexity:</em> Constant time. 
+    </ol>
+    <ins>
+<pre>T*         uninitialized_data() noexcept;
+</pre>
+     <ol start="3">
+      <li> <em>Returns:</em> A pointer to uninitialized storage that would hold elements in
+     the range <code>[size(), capacity())</code>. [<em>Note:</em> This
+     storage may be initialized through a pointer obtained by casting <code>T*</code> to <code>void*</code> and then to <code>char*</code>, <code>unsigned char*</code>, or <code>std::byte*</code>. ([<strong>basic.life</strong>]p6.4). - <em>end note</em> ] 
+      <li> <em>Remarks:</em> This member function does not participate in overload resolution
+     if <code> allocator_traits&lt;Allocator>::rebind_traits&lt;U>::implicit_construct(U
+     *) </code> is not well-formed. 
+      <li> <em>Complexity:</em> Constant time. 
+     </ol>
+    </ins>
+   </blockquote>
+   <p>In [<strong>vector.modifiers</strong>] add new p3-6:</p>
+   <blockquote>
+    <ol start="2">
+     <li> <em>Complexity:</em> The complexity is linear in the number of elements inserted
+     plus the distance to the end of the vector.
+    </ol>
+    <ins>
+<pre>iterator insert_from_capacity(size_type n);
+</pre>
+     <ol start="3">
+      <li> <em>Requires:</em> - <code>n &lt;= capacity() - size()</code>. 
+      <li> <em>Remarks:</em> - Appends <code class="highlight"><c- n>n</c-></code> elements by implicitly creating them
+     from capacity. The application must have initialized the storage backing
+     these elements otherwise the behavior is undefined. This member function
+     does not participate in overload resolution if <code> allocator_traits&lt;Allocator>::rebind_traits&lt;U>::implicit_construct(U
+     *) </code> is not well-formed. 
+      <li> <em>Returns:</em> - an iterator to the first element inserted, otherwise <code>end()</code>. 
+      <li> <em>Complexity:</em> - The complexity is linear in the number of elements
+     inserted. [<em>Note:</em> For some allocators, including the default allocator,
+     actual complexity is constant time. - <em>end note</em> ] 
+     </ol>
+    </ins>
+<pre>iterator erase(const_iterator position);
+iterator erase(const_iterator first, const_iterator last);
+void pop_back();
+</pre>
+    <ol start="7">
+     <li> <em>Effects:</em> Invalidates iterators and references at or after the point of
+     the erase. 
+     <li> ... 
+    </ol>
+   </blockquote>
+   <h2 class="heading settled" data-level="8" id="acknowledgments"><span class="secno">8. </span><span class="content">Acknowledgments</span><a class="self-link" href="#acknowledgments"></a></h2>
+   <p>Special thanks go to <strong>Glen Fernandes</strong> and <strong>Mathias Stearn</strong> for early
+comments and help with wording. Thanks also for early comments from <strong>Nevin
+Liber</strong>, <strong>Agustín Bergé</strong>, and <strong>Arthur O’Dwyer</strong> provided guidance on object
+lifetime and allocator interactions.</p>
+  </main>
+<script>
+(function() {
+  "use strict";
+  var collapseSidebarText = '<span aria-hidden="true">←</span> '
+                          + '<span>Collapse Sidebar</span>';
+  var expandSidebarText   = '<span aria-hidden="true">→</span> '
+                          + '<span>Pop Out Sidebar</span>';
+  var tocJumpText         = '<span aria-hidden="true">↑</span> '
+                          + '<span>Jump to Table of Contents</span>';
+
+  var sidebarMedia = window.matchMedia('screen and (min-width: 78em)');
+  var autoToggle   = function(e){ toggleSidebar(e.matches) };
+  if(sidebarMedia.addListener) {
+    sidebarMedia.addListener(autoToggle);
+  }
+
+  function toggleSidebar(on) {
+    if (on == undefined) {
+      on = !document.body.classList.contains('toc-sidebar');
+    }
+
+    /* Don’t scroll to compensate for the ToC if we’re above it already. */
+    var headY = 0;
+    var head = document.querySelector('.head');
+    if (head) {
+      // terrible approx of "top of ToC"
+      headY += head.offsetTop + head.offsetHeight;
+    }
+    var skipScroll = window.scrollY < headY;
+
+    var toggle = document.getElementById('toc-toggle');
+    var tocNav = document.getElementById('toc');
+    if (on) {
+      var tocHeight = tocNav.offsetHeight;
+      document.body.classList.add('toc-sidebar');
+      document.body.classList.remove('toc-inline');
+      toggle.innerHTML = collapseSidebarText;
+      if (!skipScroll) {
+        window.scrollBy(0, 0 - tocHeight);
+      }
+      tocNav.focus();
+      sidebarMedia.addListener(autoToggle); // auto-collapse when out of room
+    }
+    else {
+      document.body.classList.add('toc-inline');
+      document.body.classList.remove('toc-sidebar');
+      toggle.innerHTML = expandSidebarText;
+      if (!skipScroll) {
+        window.scrollBy(0, tocNav.offsetHeight);
+      }
+      if (toggle.matches(':hover')) {
+        /* Unfocus button when not using keyboard navigation,
+           because I don’t know where else to send the focus. */
+        toggle.blur();
+      }
+    }
+  }
+
+  function createSidebarToggle() {
+    /* Create the sidebar toggle in JS; it shouldn’t exist when JS is off. */
+    var toggle = document.createElement('a');
+      /* This should probably be a button, but appearance isn’t standards-track.*/
+    toggle.id = 'toc-toggle';
+    toggle.class = 'toc-toggle';
+    toggle.href = '#toc';
+    toggle.innerHTML = collapseSidebarText;
+
+    sidebarMedia.addListener(autoToggle);
+    var toggler = function(e) {
+      e.preventDefault();
+      sidebarMedia.removeListener(autoToggle); // persist explicit off states
+      toggleSidebar();
+      return false;
+    }
+    toggle.addEventListener('click', toggler, false);
+
+
+    /* Get <nav id=toc-nav>, or make it if we don’t have one. */
+    var tocNav = document.getElementById('toc-nav');
+    if (!tocNav) {
+      tocNav = document.createElement('p');
+      tocNav.id = 'toc-nav';
+      /* Prepend for better keyboard navigation */
+      document.body.insertBefore(tocNav, document.body.firstChild);
+    }
+    /* While we’re at it, make sure we have a Jump to Toc link. */
+    var tocJump = document.getElementById('toc-jump');
+    if (!tocJump) {
+      tocJump = document.createElement('a');
+      tocJump.id = 'toc-jump';
+      tocJump.href = '#toc';
+      tocJump.innerHTML = tocJumpText;
+      tocNav.appendChild(tocJump);
+    }
+
+    tocNav.appendChild(toggle);
+  }
+
+  var toc = document.getElementById('toc');
+  if (toc) {
+    createSidebarToggle();
+    toggleSidebar(sidebarMedia.matches);
+
+    /* If the sidebar has been manually opened and is currently overlaying the text
+       (window too small for the MQ to add the margin to body),
+       then auto-close the sidebar once you click on something in there. */
+    toc.addEventListener('click', function(e) {
+      if(e.target.tagName.toLowerCase() == "a" && document.body.classList.contains('toc-sidebar') && !sidebarMedia.matches) {
+        toggleSidebar(false);
+      }
+    }, false);
+  }
+  else {
+    console.warn("Can’t find Table of Contents. Please use <nav id='toc'> around the ToC.");
+  }
+
+  /* Wrap tables in case they overflow */
+  var tables = document.querySelectorAll(':not(.overlarge) > table.data, :not(.overlarge) > table.index');
+  var numTables = tables.length;
+  for (var i = 0; i < numTables; i++) {
+    var table = tables[i];
+    var wrapper = document.createElement('div');
+    wrapper.className = 'overlarge';
+    table.parentNode.insertBefore(wrapper, table);
+    wrapper.appendChild(table);
+  }
+
+})();
+</script>
+  <h2 class="no-num no-ref heading settled" id="references"><span class="content">References</span><a class="self-link" href="#references"></a></h2>
+  <h3 class="no-num no-ref heading settled" id="informative"><span class="content">Informative References</span><a class="self-link" href="#informative"></a></h3>
+  <dl>
+   <dt id="biblio-n4762">[N4762]
+   <dd><a href="https://wg21.link/N4762">Working Draft, Standard for Programming Language C++</a>. 7 July 2018. URL: <a href="https://wg21.link/N4762">https://wg21.link/N4762</a>
+   <dt id="biblio-p0593r2">[P0593R2]
+   <dd>Richard Smith. <a href="https://wg21.link/p0593r2">Implicit creation of objects for low-level object manipulation</a>. 11 February 2018. URL: <a href="https://wg21.link/p0593r2">https://wg21.link/p0593r2</a>
+   <dt id="biblio-p0653r2">[P0653R2]
+   <dd>Glen Joseph Fernandes. <a href="https://wg21.link/p0653r2">Utility to convert a pointer to a raw pointer</a>. 9 November 2017. URL: <a href="https://wg21.link/p0653r2">https://wg21.link/p0653r2</a>
+   <dt id="biblio-p1020r0">[P1020R0]
+   <dd>Glen Joseph Fernandes; Peter Dimov. <a href="https://wg21.link/P1020R0">Smart pointer creation functions for default initialization</a>. May 2018. URL: <a href="https://wg21.link/P1020R0">https://wg21.link/P1020R0</a>
+   <dt id="biblio-p1072r1">[P1072R1]
+   <dd>Chris Kennelly; Mark Zeren. <a href="https://wg21.link/P1071R1">Default Initialization for basic_string</a>. October 2018. URL: <a href="https://wg21.link/P1071R1">https://wg21.link/P1071R1</a>
+  </dl>
