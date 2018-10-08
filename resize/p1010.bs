@@ -1,15 +1,15 @@
 <pre class='metadata'>
 Title: Container support for implicit lifetime types
 Shortname: P1010
-Revision: 0
+Revision: 1
 Audience: LEWG, LWG
 Status: D
 Group: WG21
-URL: http://wg21.link/p1010r0
-!Source: <a href="https://github.com/mzeren-vmw/iso/blob/master/resize/p1010r0.bs">https://github.com/mzeren-vmw/iso/blob/master/resize/p1010r0.bs</a>
+URL: http://wg21.link/p1010r1
+!Source: <a href="https://github.com/mzeren-vmw/iso/blob/master/resize/p1010r1.bs">https://github.com/mzeren-vmw/iso/blob/master/resize/p1010r1.bs</a>
 Editor: Mark Zeren, VMware, mzeren@vmware.com
 Editor: Chris Kennelly, Google, ckennelly@google.com
-Date: 2018-05-06
+Date: 2018-10-08
 Markup Shorthands: markdown yes
 
 Abstract: Extend allocators, <code>allocator_traits</code>, and
@@ -34,6 +34,7 @@ Summary {#summary}
 [[P0593R2]] Gives us defined behavior for creating objects from raw, application
 initialized, memory. These *implicit lifetime* types include:
 
+<blockquote>
 <ul>
 
 <li> Scalar types </li>
@@ -44,6 +45,7 @@ initialized, memory. These *implicit lifetime* types include:
      kind) </li>
 
 </ul>
+</blockquote>
 
 When working with implicit lifetime types applications may be able to bulk
 initialize objects without value initialization (zeroing) or explicit calls to
@@ -59,9 +61,8 @@ to undefined behavior until the application initializes all such elements. This
 proposal avoids this "trap state" for the container by not incorporating
 elements into the container until they have been initialized.
 
-We will propose related changes to `basic_string` in a separate paper
-[[P1072R0]].
-
+We have proposed related changes to `basic_string` in a separate paper
+[[P1072R1]].
 
 Approach {#approach}
 -----------------------
@@ -74,9 +75,9 @@ initializes. Second, the application tells the container how many objects were
 initialized. The container can then tell the allocator about the newly created
 objects.
 
-References and wording are relative to [[N4741]].
+References and wording are relative to [[N4762]].
 
-Starting with [**allocator.requirements**] (Table 31), we add:
+Starting with [**allocator.requirements**] (Table 33), we add:
 
 <ul>
 
@@ -136,6 +137,16 @@ Finally, in [**vector**] we add two member functions:
 
 </ul>
 
+Revision History {#history}
+==================
+
+<strong>R1</strong>
+<ul>
+
+<li> Rebased on [[N4762]].</li>
+<li> Updated reference to [[P1072]]. </li>
+
+</ul>
 
 Motivating examples {#motivation}
 ===================
@@ -522,7 +533,7 @@ Wording {#wording}
 [**allocator.requirements**] {#requirements}
 ----------------------------
 
-In [**allocator.requirements**] Table 31 add the `a.implicit_construct(c)`
+In [**allocator.requirements**] Table 33 add the `a.implicit_construct(c)`
 expression:
 
 <blockquote>
@@ -599,12 +610,12 @@ Note: Following the pattern of `pointer_traits::to_address` we do not add
 would make it a required member of `allocator_traits` which would break existing
 user specializations.
 
-Add a new &sect; 23.10.9.3:
+Add a new &sect; 19.10.9.3:
 
 <blockquote>
 <ins>
 
-<strong>23.10.9.3 Allocator traits optional static member functions
+<strong>19.10.9.3 Allocator traits optional static member functions
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [allocator.traits.optmem]</strong>
 
 <pre highlight="">
@@ -642,7 +653,7 @@ In [**container.requirements.general**]p3 add references to `implicit_construct`
      allocator_traits&lt;allocator_type&gt;::rebind_traits&lt;U&gt;::implicit_construct</code></ins>
      and destroyed using the function <code highlight="">
      allocator_traits&lt;allocator_type&gt;::rebind_traits&lt;U&gt;::destroy
-     </code> (23.10.9.2), where <code highlight="">U</code> is either <code
+     </code> (19.10.9.2), where <code highlight="">U</code> is either <code
      highlight="">allocator_type::value_type</code> or an internal type used by
      the container. These functions are called only for the container’s element
      type, not for internal types used by the container. [*Note:* This means,
@@ -666,12 +677,12 @@ namespace std {
 
     ...
 
-    <em>// 26.3.11.4, data access</em>
+    <em>// 21.3.11.4, data access</em>
     T* data() noexcept;
     const T* data() const noexcept;
     <ins>T* uninitialized_data() noexcept;</ins>
 
-    <em>// 26.3.11.5, modifiers</em>
+    <em>// 21.3.11.5, modifiers</em>
     template&lt;class... Args&gt; reference emplace_back(Args&&... args);
     void push_back(const T& x);
     void push_back(T&& x);
@@ -788,15 +799,15 @@ Acknowledgments {#acknowledgments}
 
 Special thanks go to **Glen Fernandes** and **Mathias Stearn** for early
 comments and help with wording. Thanks also for early comments from **Nevin
-Liber**, **Agustín Bergé** and **Arthur O'Dwyer** provided guidance on object
+Liber**, **Agustín Bergé**, and **Arthur O'Dwyer** provided guidance on object
 lifetime and allocator interactions.
 
 <pre class=biblio>
 {
-    "n4741": {
-        "href": "https://wg21.link/N4741",
+    "n4762": {
+        "href": "https://wg21.link/N4762",
         "title": "Working Draft, Standard for Programming Language C++",
-        "date": "2 April 2018"
+        "date": "7 July 2018"
     },
     "p1020r0": {
         "href": "https://wg21.link/P1020R0",
@@ -804,11 +815,11 @@ lifetime and allocator interactions.
         "authors": ["Glen Joseph Fernandes", "Peter Dimov"],
         "date": "May 2018"
     },
-    "p1072r0": {
-        "href": "https://wg21.link/P1071R0",
+    "p1072r1": {
+        "href": "https://wg21.link/P1071R1",
         "title": "Default Initialization for basic_string",
         "authors": ["Chris Kennelly", "Mark Zeren"],
-        "date": "May 2018"
+        "date": "October 2018"
     }
 }
 </pre>
