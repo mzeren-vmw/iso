@@ -1,0 +1,814 @@
+<pre class='metadata'>
+Title: Container support for implicit lifetime types
+Shortname: P1010
+Revision: 0
+Audience: LEWG, LWG
+Status: D
+Group: WG21
+URL: http://wg21.link/p1010r0
+!Source: <a href="https://github.com/mzeren-vmw/iso/blob/master/resize/p1010r0.bs">https://github.com/mzeren-vmw/iso/blob/master/resize/p1010r0.bs</a>
+Editor: Mark Zeren, VMware, mzeren@vmware.com
+Editor: Chris Kennelly, Google, ckennelly@google.com
+Date: 2018-05-06
+Markup Shorthands: markdown yes
+
+Abstract: Extend allocators, <code>allocator_traits</code>, and
+          <code>vector</code> to allow efficient addition of elements of
+          <em>implicit lifetime</em> type.
+
+</pre>
+
+<hr/>
+
+<blockquote>
+... there is a family of types for which programmers <br/>
+assume they do not need to explicitly create objects ... <br/>
+</blockquote>
+[[P0593R2]]
+
+<hr/>
+
+Summary {#summary}
+=======
+
+[[P0593R2]] Gives us defined behavior for creating objects from raw, application
+initialized, memory. These *implicit lifetime* types include:
+
+<ul>
+
+<li> Scalar types </li>
+
+<li> Array types (with any element type) </li>
+
+<li> Class types with a trivial destructor and a trivial constructor (of any
+     kind) </li>
+
+</ul>
+
+When working with implicit lifetime types applications may be able to bulk
+initialize objects without value initialization (zeroing) or explicit calls to
+constructors. For example, the application may read objects from the network, or
+it may stamp out a pattern of objects, etc.. This proposal enables these
+optimizations for allocator aware containers, and extends `vector` to allow
+them. Prior work in this area has relied on trivial default construction.
+However, [[P0593R2]] allows class types with *non-trivial* default constructors
+that have trivial move or copy constructors to be implicit lifetime types. This
+proposal includes this alternate set of types. Default construction typically
+leaves indeterminate values in elements controlled by the `vector`, exposing it
+to undefined behavior until the application initializes all such elements. This
+proposal avoids this "trap state" for the container by not incorporating
+elements into the container until they have been initialized.
+
+We will propose related changes to `basic_string` in a separate paper
+[[P1072R0]].
+
+
+Approach {#approach}
+-----------------------
+
+Allocator aware containers must cooperate with their allocator for object
+construction and destruction. Working with the broader set of implicit lifetime
+types requires that the container use a two step interaction with the
+application. First, the container exposes memory that the application
+initializes. Second, the application tells the container how many objects were
+initialized. The container can then tell the allocator about the newly created
+objects.
+
+References and wording are relative to [[N4741]].
+
+Starting with [**allocator.requirements**] (Table 31), we add:
+
+<ul>
+
+<li> `a.implicit_construct(c)` - This expression informs the allocator *post
+     facto* of an object of implicit lifetime type that has been initialized and
+     implicitly created by the application. This member function, if provided,
+     does not participate in overload resolution unless `C` is an implicit
+     lifetime type. By default it does nothing.
+
+</ul>
+
+Then in [**allocator.traits**] we add a new *optional* member:
+
+<ul>
+
+<li> `implicit_construct(Alloc& a, T* p)` - This member function:
+     <ul>
+
+     <li> Calls `a.implicit_construct(p)` if it is well-formed, otherwise ...
+          </li>
+
+     <li> Does nothing if T is an implicit lifetime type and `a.construct(p)` is
+          *not* well-formed, otherwise ... </li>
+
+     <li> Does not participate in overload resolution.</li>
+
+     </ul>
+
+     (The intent is to leave the meaning of allocators which define
+     `construct(T*)` unchanged, but to allow those that don't, including the
+     default allocator, to support `implicit_construct` implicitly.)
+
+</li>
+</ul>
+
+Finally, in [**vector**] we add two member functions:
+
+<ul>
+
+<li> <code>T* uninitialized_data()</code> - Returns a pointer to storage that
+     would back elements [<code>size()</code>, <code>capacity()</code>). Note
+     that this storage may contain indeterminate values ([**dcl.init**]p12). The
+     application may initialize the memory by casting to `void*` and then to
+     `char*`, `unsigned char*`, or `std::byte*`. ([**basic.life**]p6.4).
+
+     Does not participate in overload resolution if
+     `allocator_traits<Allocator>::rebind_traits<U>::implicit_construct(U *)` is
+     not well-formed.
+
+<li> <code>insert_from_capacity(size_type n)</code> - Appends <code>n</code>
+     elements from capacity. The application must have initialized the storage
+     backing these elements otherwise the behavior is undefined.
+
+     Does not participate in overload resolution if
+     `allocator_traits<Allocator>::rebind_traits<U>::implicit_construct(U *)` is
+     not well-formed.
+
+</ul>
+
+
+Motivating examples {#motivation}
+===================
+
+The extra overhead described in the examples below is often small, yet the
+optimization can be significant in performance critical execution paths.
+
+Casts, using declarations, and other details have been elided to keep the
+examples simple.
+
+Example: reading from the network {#network}
+---------------------------------
+
+The current `vector` interface forces a copy when reading objects from the
+network, or a file, etc.. (`std::byte` keeps the example simple, but the
+principle applies to user defined implicit lifetime types as well.):
+
+<xmp>
+using ByteVec = vector<byte>;
+
+class Socket {
+public:
+  size_t Read(byte* buf, size_t size);
+  ...
+};
+
+unsigned ReadSome(ByteVec* out, Socket& socket)
+{
+  byte buf[kBufferSize];
+  auto size = socket.Read(&buf[0], kBufferSize);
+  out->insert(out.end(), &buff[0], &buff[0] + size); // BAD: Copies.
+  return size;
+}
+
+</xmp>
+
+
+With the changes proposed in this paper, the above example would be optimized
+as:
+
+<xmp>
+unsigned ReadSome(ByteVec* out, Socket& socket)
+{
+  out.reserve(out.size() + kBufferSize);
+  auto size = socket.Read(out->uninitialized_data(),    // GOOD: No copies.
+                          data.capacity() - data.size());
+  out->insert_from_capacity(size);                      // GOOD: No-op.
+  return size;
+}
+</xmp>
+
+Note: `reserve` bypasses `vector`'s normal growth algorithm which can
+lead to unnecessary allocations. Resolving that issue is out of scope for
+this proposal.
+
+Example: stamping a pattern
+---------------------------
+
+For a second example, consider stamping a repeating pattern of elements.
+`vector`'s interface offers two options, neither optimal:
+
+<ol>
+
+<li> Call <strong><code>resize</code></strong> and write directly into the
+     container. However, this *value initializes* elements, typically writing
+     zeros: </li>
+
+<xmp>
+using IntVec = vector<int>;
+
+void AppendPattern(IntVec& out, span<const int> pattern, unsigned count)
+{
+  auto start = out.size();
+  auto step = pattern.size();
+  out.resize(start + step * count);    // BAD: Zeros.
+  for (auto cur = out.begin() + start;
+       cur < out.end(); cur += step) {
+    memcpy(&*cur, pattern.data(),      // GOOD: No bookkeeping.
+           step * sizeof(int)));
+  }
+}
+</xmp>
+
+<li> Call <strong><code>reserve</code></strong> and then <code>insert</code> in
+     a loop. However, this incurs bookkeeping overhead in each insert: </li>
+
+<xmp>
+void AppendPattern(IntVec& out, span<const int> pattern, unsigned count)
+{
+  out.reserve(out.size() + pattern.size() * count); // GOOD: No zeros.
+  for (unsigned i = 0; i < count; ++i) {
+    out.insert(out.end(), pattern.begin(),          // BAD: Bookkeeping.
+               pattern.end());
+  }
+}
+</xmp>
+
+</ol>
+
+With the changes proposed in this paper the above example would be optimized
+as:
+
+<ol>
+<xmp>
+void AppendPattern(IntVec& out, span<const int> pattern, unsigned count)
+{
+  auto step = pattern.size();
+  auto total = step * count;
+  out.reserve(out.size() + total);     // GOOD: No zeros.
+  int* cur = out.uninitialized_data();
+  int* end = cur + total;
+  for (;cur < end; cur += step) {
+    memcpy(cur, pattern.data(),        // GOOD: No bookkeeping.
+           step * sizeof(int)));
+  }
+  out.insert_from_capacity(total);     // GOOD: No-op.
+}
+</xmp>
+</ol>
+
+
+Related work {#related}
+============
+
+As mentioned above, all related work to date has used default initialization.
+This is the first proposal that uses implicit lifetime types.
+
+
+Google <code>basic_string</code> {#google}
+------
+
+Google has hacked their internal <code>basic_string</code> implementation to
+provide a related `resize_uninitialized` API. They have measured performance
+improvements (that are not public) that justify maintaining this extension.
+
+Google's Abseil open source library provides hooks for other users that want to
+independently apply the same hack. See:
+<a href="https://github.com/abseil/abseil-cpp/blob/master/absl/strings/internal/resize_uninitialized.h">
+https://github.com/abseil/abseil-cpp/blob/master/absl/strings/internal/resize_uninitialized.h</a>
+
+Google's Protocol Buffers open source library takes advantage of Abseil's hooks
+to improve performance. See:
+<a href="https://github.com/google/protobuf/blob/master/src/google/protobuf/stubs/stl_util.h#L61">
+https://github.com/google/protobuf/blob/master/src/google/protobuf/stubs/stl_util.h#L61</a>
+
+The Snappy compression library has hooks for a similar hack:</br> <a
+href="https://github.com/google/snappy/search?q=STLStringResizeUninitialized">
+https://github.com/google/snappy/search?q=STLStringResizeUninitialized</a>
+
+Tensor Flow does too:</br>
+<a href="https://github.com/tensorflow/tensorflow/search?q=STLStringResizeUninitialized">
+https://github.com/tensorflow/tensorflow/search?q=STLStringResizeUninitialized</a>
+
+
+Boost containers {#boost}
+-----
+
+Boost provides a related optimization for vector-like containers, introduced in
+<a
+href="https://github.com/boostorg/container/commit/14f092ab00def8e692b81d57d0466a617a6f6130">
+[SVN r85964] </a> by Ion Gaztañaga.
+
+<blockquote><pre highlight="text">
+Default initialization for vector-like containers
+Complexity guarantees for associative container constructors and ordered input ranges
+Added benchmark for associative containers
+Fixes #9166
+</pre></blockquote>
+
+E.g.: <a
+href="https://github.com/boostorg/container/blob/develop/include/boost/container/vector.hpp">
+boost/container/vector.hpp</a>:
+
+<xmp>
+   //! <b>Effects</b>: Constructs a vector that will use a copy of allocator a
+   //!   and inserts n default initialized values.
+   //!
+   //! <b>Throws</b>: If allocator_type's allocation
+   //!   throws or T's default initialization throws.
+   //!
+   //! <b>Complexity</b>: Linear to n.
+   //!
+   //! <b>Note</b>: Non-standard extension
+   vector(size_type n, default_init_t);
+   vector(size_type n, default_init_t, const allocator_type &a)
+   ...
+   void resize(size_type new_size, default_init_t);
+   ...
+</xmp>
+
+These optimizations are also supported in Boost Container's `small_vector`,
+`static_vector`, `deque`, `stable_vector`, and `string`.
+
+
+MongoDB
+-------
+
+MongoDB has a string builder that could have been implemented in terms of
+`basic_string` as a return value. However, as explained by Mathias Stearn, zero
+initialization was measured and was too costly. Instead a custom string builder
+type is used:
+
+E.g.: <a
+href="https://github.com/mongodb/mongo/blob/67da083face9dabdf95a5ffb72d3da675269b4c7/src/mongo/db/fts/unicode/string.h#L128-L143">
+https://github.com/mongodb/mongo/blob/master/src/mongo/db/fts/unicode/string.h
+</a>
+
+<xmp>
+/**
+ * Strips diacritics and case-folds the utf8 input string, as needed to support
+ * options.
+ *
+ * The options field specifies what operations to *skip*, so kCaseSensitive
+ * means to skip case folding and kDiacriticSensitive means to skip diacritic
+ * striping. If both flags are specified, the input utf8 StringData is returned
+ * directly without any processing or copying.
+ *
+ * If processing is performed, the returned StringData will be placed in buffer.
+ * buffer's contents (if any) will be replaced. Since we may return the input
+ * unmodified the returned StringData's lifetime is the shorter of the input
+ * utf8 and the next modification to buffer. The input utf8 must not point into
+ * buffer.
+ */
+static StringData caseFoldAndStripDiacritics(StackBufBuilder* buffer,
+                                             StringData utf8,
+                                             SubstrMatchOptions options,
+                                             CaseFoldMode mode);
+</xmp>
+(Comments re-wrapped.)
+
+VMware string builders {#vmware}
+------
+
+VMware has an internal string builder implementation that avoids
+<code>std::string</code> due, in part, to <code>reserve</code>'s zero-writing
+behavior. This is similar in spirit to the MongoDB example above.
+
+
+Discussion on std-proposals {#std-proposals}
+---------------------------
+
+This topic was discussed in 2013 on std-proposals in a thread titled "Add
+basic_string::resize_uninitialized (or a similar mechanism)":</br> <a
+href="https://groups.google.com/a/isocpp.org/forum/#!topic/std-proposals/XIO4KbBTxl0">
+https://groups.google.com/a/isocpp.org/forum/#!topic/std-proposals/XIO4KbBTxl0</a>
+
+
+P1020R0
+-------
+See also [[P1020R0]] "Smart pointer creation functions for default initialization".
+
+
+Alternatives Considered {#alternatives}
+=======================
+
+Free function `std::implicit_construct` {#free}
+-----------------------------------------------------
+
+This proposal adds an optional member to `std::allocator_traits`. In
+[[P0653R2]], which added the optional member `std::pointer_traits::to_address`,
+the author also added a free function `std::to_address`. The free function
+provides uniform access to user specializations of `pointer_traits` that do not
+define `to_address`. A free function is not necessary or applicable here because
+containers need to directly test for well-formedness of
+`allocator_traits<Allocator>::rebind_traits<U>::implicit_construct(U *)` to
+correctly enable / disable methods in their interface.
+
+Also consider that `allocator_traits` is designed to provide uniform operations
+over custom allocators. [**allocator.requirements**]p2 does allow for user
+specialization of `allocator_traits`, but do users need this additional
+customization point? Should `allocator_traits` have been named
+`allocator_adapter`? Should we discourage or deprecate user specialization?</li>
+
+`insert_from_capacity`
+---------------------
+What name and return type should we use?
+<br/>&nbsp;
+
+<table>
+<tr><th>Return type</th><th>Name</th><th>Comments</th><tr>
+
+<tr>
+<td>`iterator`</td>
+<td>`insert_from_capacity(n)`</td>
+<td>as proposed</td>
+</tr>
+
+<tr>
+<td>`vector&`</td>
+<td>`append_from_capacity(n)`</td>
+<td>like `basic_string::append`. `vector` does not have `append`.</td>
+</tr>
+
+<tr>
+<td>`void`</td>
+<td>`resize_uninitialized(new_size)`</td>
+<td>but the elements *are* initialized</td>
+</tr>
+
+<tr>
+<td>`void`</td>
+<td>`resize_from_capacity(new_size)`</td>
+<td>`resize` implies / is associated with reallocation, but this operation
+    cannot reallocate</td>
+</tr>
+
+<tr>
+<td>`void`</td>
+<td>`extend(n)`, `grow(n)`, etc.</td>
+<td>some new term...</td>
+</tr>
+
+</table>
+
+`implicit_construct`
+---------------------
+What name should we use?
+<br/>&nbsp;
+
+<table>
+<tr><th>Return type</th><th>Name</th><th>Comments</th><tr>
+
+<tr>
+<td>`void`</td>
+<td>`implicit_construct(T *)`</td>
+<td>as proposed</td>
+</tr>
+
+<tr>
+<td>`void`</td>
+<td>`bless(T *)`</td>
+<td>From [[P0593R2]].</td>
+</tr>
+
+</table>
+
+
+`uninitialized_data`
+-------------------
+
+What name and return type should we use?
+<br/>&nbsp;
+
+<table>
+<tr><th>Return type</th><th>Name</th><th>Comments</th><tr>
+
+<tr>
+<td>`T*`</td>
+<td>`uninitialized_data()`</td>
+<td>as proposed</td>
+</tr>
+
+<tr>
+<td>`span<T>`</td>
+<td>`uninitialized_data()`</td>
+
+<td> Nevin commented: the current proposal makes `capacity()` a salient property
+     of `vector` and that that may be unsirable from the LEWG point of view.
+     Mathias suggested returning `span<T>`.</td>
+
+</tr>
+
+</table>
+
+
+Open Issues {#issues}
+===========
+
+<ul>
+
+<li> **Q:** Can `implicit_construct` throw?
+
+     **A:** Yes.</li>
+
+<li> It would be useful to add a discussion of the tradeoffs between implicit
+     lifetime types and default initialization.
+
+</ul>
+
+
+Wording {#wording}
+=======
+
+[**allocator.requirements**] {#requirements}
+----------------------------
+
+In [**allocator.requirements**] Table 31 add the `a.implicit_construct(c)`
+expression:
+
+<blockquote>
+
+<table>
+
+<tr>
+<th>Expression</th>
+<th>Return&nbsp;type</th>
+<th>Assertion/note <br/> pre-/post-condition</th>
+<th>Default</th>
+</tr>
+
+<tr><td>...</td></tr>
+
+<tr>
+<td><code highlight="">a.construct(c, args)</code></td>
+<td>(not used)</td>
+
+<td>*Effects:* Constructs an object of type <code highlight="">C</code> at <code
+    highlight="">c</code></td>
+
+<td><code highlight="">::new((void*)c) C(forward<Args>(args)...)</code></td>
+</tr>
+
+<tr>
+<td><ins><code highlight="">a.implicit_construct(c)</code></ins></td>
+<td><ins>(not used)</ins></td>
+
+<td><ins>*Effects:* Informs the allocator that an object of type <code
+    highlight=""> C </code> has been implicitly created at <code highlight="">
+    c</code>. Only participates in overload resolution if <code highlight=""> C
+    </code> is an *implicit lifetime* type.</ins></td>
+
+<td><ins>Does nothing</ins></td>
+</tr>
+
+<tr>
+<td><code highlight="">a.destroy(c)</code></td>
+<td>(not used)</td>
+<td>*Effects:* Destroys the object at <code highlight="">c</code></td>
+<td><code highlight="">c->~C()</code></td>
+</tr>
+
+</table>
+...
+
+</blockquote>
+
+And then in [**allocator.requirements**]p9 add references to
+`implicit_construct`:
+
+<blockquote>
+
+<ol start="9">
+
+<li> An allocator may constrain the types on which it can be instantiated and
+     the arguments for which its <code highlight="">construct</code><ins>, <code
+     highlight="">implicit_construct</code>,</ins> or <code highlight="">
+     destroy</code> members may be called. If a type cannot be used with a
+     particular allocator, the allocator class or the call to <code
+     highlight=""> construct</code><ins>, <code highlight=""> implicit_construct
+     </code>,</ins> or <code highlight=""> destroy</code> may fail to
+     instantiate. </li>
+
+</ol>
+</blockquote>
+
+[**allocator.traits**] {#traits}
+----------------------
+
+Note: Following the pattern of `pointer_traits::to_address` we do not add
+`implicit_construct` to the synopsis in [**allocator.traits**]. Placing it there
+would make it a required member of `allocator_traits` which would break existing
+user specializations.
+
+Add a new &sect; 23.10.9.3:
+
+<blockquote>
+<ins>
+
+<strong>23.10.9.3 Allocator traits optional static member functions
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [allocator.traits.optmem]</strong>
+
+<pre highlight="">
+  template&lt;class T, class... Args&gt;
+    static void implicit_construct(Alloc& a, T* p);
+</pre>
+
+<ol>
+
+<li> *Effects:* Calls <code highlight="">a.implicit_construct(p)</code> if that
+     call is well-formed; otherwise, does nothing if <code highlight="">T</code>
+     is an *implicit lifetime* type and <code highlight="">a.construct(p)</code>
+     is *not* well-formed; otherwise, does not participate in overload
+     resolution.</li>
+
+</ol>
+</ins>
+</blockquote>
+
+
+[**container.requirements.general**] {#general}
+------------------------------------
+
+In [**container.requirements.general**]p3 add references to `implicit_construct`:
+
+<blockquote>
+
+<ol start="3">
+
+<li> For the components affected by this subclause that declare an <code
+     highlight="">allocator_type</code>, objects stored in these components
+     shall be constructed using the function <code highlight="">
+     allocator_traits&lt;allocator_type&gt;::rebind_traits&lt;U&gt;::construct
+     </code><ins> or <code highlight="">
+     allocator_traits&lt;allocator_type&gt;::rebind_traits&lt;U&gt;::implicit_construct</code></ins>
+     and destroyed using the function <code highlight="">
+     allocator_traits&lt;allocator_type&gt;::rebind_traits&lt;U&gt;::destroy
+     </code> (23.10.9.2), where <code highlight="">U</code> is either <code
+     highlight="">allocator_type::value_type</code> or an internal type used by
+     the container. These functions are called only for the container’s element
+     type, not for internal types used by the container. [*Note:* This means,
+     for example, that a node-based container might need to construct nodes
+     containing aligned buffers and call construct to place the element into the
+     buffer. — *end note* ] </li>
+
+</ol>
+</blockquote>
+
+[**vector**] {#vector}
+------------
+
+In [**vector.overview**] add the declaration for `insert_from_capacity`:
+
+<blockquote>
+<pre highlight="">
+namespace std {
+  template&lt;class T, class Allocator = allocator&lt;T&gt;&gt;
+  class vector {
+
+    ...
+
+    <em>// 26.3.11.4, data access</em>
+    T* data() noexcept;
+    const T* data() const noexcept;
+    <ins>T* uninitialized_data() noexcept;</ins>
+
+    <em>// 26.3.11.5, modifiers</em>
+    template&lt;class... Args&gt; reference emplace_back(Args&&... args);
+    void push_back(const T& x);
+    void push_back(T&& x);
+    void pop_back();
+
+    template&lt;class... Args&gt; iterator emplace(const_iterator position, Args&&... args);
+    iterator insert(const_iterator position, const T& x);
+    iterator insert(const_iterator position, T&& x);
+    iterator insert(const_iterator position, size_type n, const T& x);
+    template&lt;class InputIterator&gt;
+      iterator insert(const_iterator position, InputIterator first, InputIterator last);
+    iterator insert(const_iterator position, initializer_list&lt;T&gt; il);
+    <ins>iterator insert_from_capacity(size_type n);</ins>
+    iterator erase(const_iterator position);
+    iterator erase(const_iterator first, const_iterator last);
+
+    ...
+</pre>
+</blockquote>
+
+In [**vector.data**] add new p3-5:
+
+<blockquote>
+<pre highlight="">
+T*         data() noexcept;
+const T*   data() const noexcept;
+</pre>
+<ol>
+
+<li> *Returns:* A pointer such that <code highlight="">[data(), data() +
+     size())</code> is a valid range. For a non-empty vector, <code
+     highlight=""> data() == addressof(front())</code>. </li>
+
+<li> *Complexity:* Constant time. </li>
+</ol>
+<ins>
+<pre highlight="">
+T*         uninitialized_data() noexcept;
+</pre>
+<ol start="3">
+
+<li> *Returns:* A pointer to uninitialized storage that would hold elements in
+     the range <code highlight="">[size(), capacity())</code>. [*Note:* This
+     storage may be initialized through a pointer obtained by casting <code
+     highlight="">T*</code> to <code highlight="">void*</code> and then to <code
+     highlight="">char*</code>, <code highlight="">unsigned char*</code>, or
+     <code highlight="">std::byte*</code>. ([**basic.life**]p6.4). - *end note* ]
+     </li>
+
+
+<li> *Remarks:* This member function does not participate in overload resolution
+     if <code highlight="">
+     allocator_traits&lt;Allocator&gt;::rebind_traits&lt;U&gt;::implicit_construct(U
+     *) </code> is not well-formed. </li>
+
+<li> *Complexity:* Constant time. </li>
+
+</ol>
+</ins>
+</blockquote>
+
+In [**vector.modifiers**] add new p3-6:
+
+<blockquote>
+<ol start="2">
+
+<li> *Complexity:* The complexity is linear in the number of elements inserted
+     plus the distance to the end of the vector.</li>
+
+</ol>
+<ins>
+<pre highlight="">
+iterator insert_from_capacity(size_type n);
+</pre>
+<ol start="3">
+
+<li> *Requires:* - <code highlight="">n <= capacity() - size()</code>.
+     </li>
+
+<li> *Remarks:* - Appends <code>n</code> elements by implicitly creating them
+     from capacity. The application must have initialized the storage backing
+     these elements otherwise the behavior is undefined. This member function
+     does not participate in overload resolution if <code highlight="">
+     allocator_traits&lt;Allocator&gt;::rebind_traits&lt;U&gt;::implicit_construct(U
+     *) </code> is not well-formed. </li>
+
+<li> *Returns:* - an iterator to the first element inserted, otherwise <code
+     highlight="">end()</code>. </li>
+
+<li> *Complexity:* - The complexity is linear in the number of elements
+     inserted. [*Note:* For some allocators, including the default allocator,
+     actual complexity is constant time. - *end note* ] </li>
+
+</ol>
+</ins>
+
+<pre highlight="">
+iterator erase(const_iterator position);
+iterator erase(const_iterator first, const_iterator last);
+void pop_back();
+</pre>
+<ol start="7">
+
+<li> *Effects:* Invalidates iterators and references at or after the point of
+     the erase. </li>
+
+<li> ... </li>
+
+</ol>
+</blockquote>
+
+Acknowledgments {#acknowledgments}
+================
+
+Special thanks go to **Glen Fernandes** and **Mathias Stearn** for early
+comments and help with wording. Thanks also for early comments from **Nevin
+Liber**, **Agustín Bergé** and **Arthur O'Dwyer** provided guidance on object
+lifetime and allocator interactions.
+
+<pre class=biblio>
+{
+    "n4741": {
+        "href": "https://wg21.link/N4741",
+        "title": "Working Draft, Standard for Programming Language C++",
+        "date": "2 April 2018"
+    },
+    "p1020r0": {
+        "href": "https://wg21.link/P1020R0",
+        "title": "Smart pointer creation functions for default initialization",
+        "authors": ["Glen Joseph Fernandes", "Peter Dimov"],
+        "date": "May 2018"
+    },
+    "p1072r0": {
+        "href": "https://wg21.link/P1071R0",
+        "title": "Default Initialization for basic_string",
+        "authors": ["Chris Kennelly", "Mark Zeren"],
+        "date": "May 2018"
+    }
+}
+</pre>
