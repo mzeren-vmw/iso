@@ -140,7 +140,9 @@ Finally, in [**vector**] we add two member functions:
 Revision History {#history}
 ==================
 
-<strong>R1</strong>
+R0 &rarr; R1 {#r1}
+------------------
+
 <ul>
 
 <li> Rebased on [[N4762]].</li>
