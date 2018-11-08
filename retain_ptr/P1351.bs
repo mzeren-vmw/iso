@@ -1,0 +1,174 @@
+<pre class='metadata'>
+Title: Feedback on intrusive smart pointers
+Status: D
+Shortname: D1351
+Group: WG21
+Revision: 0
+Editor: Mark Zeren, VMware, mzeren@vmware.com
+Date: 2018-11-07
+Audience: LEWGI
+Abstract: Provide feedback for [[P0468R1]] based on experience with intrusive smart pointers at VMware.
+URL: http://wg21.link/P1351
+Markup Shorthands: markdown yes
+Default Highlight: C++
+</pre>
+
+# Introduction
+
+This document provides feedback for [[P0468R1]] based on experience
+with intrusive smart pointers at VMware.
+
+Note: this is an early draft. It’s known to be incomplet and
+incorrekt, and it has lots of bad format<em>t</em>ing. Additional sections
+will appear in the post-San-Diego-meeting mailing.
+
+# Retain by default
+
+Passing a pointer generates better code than passing a smart pointer
+by reference. With this pass-by-pointer pattern, intrusive smart
+pointers should retain by default and should provide `operator=(T *)`.
+
+(For brevity, the following example code uses `struct` instead of
+`class` and may leave out a few `const`s.)
+
+Say we have:
+
+<xmp>
+#include <cstdio>
+#include <string>
+
+using namespace std;
+
+struct Scout {
+  virtual const char* Name() { return "Sam"; }
+};
+</xmp>
+
+And a function that takes a pointer:
+
+<xmp>
+void greet(Scout* scout)
+{
+  printf("Hello %s", scout->Name());
+}
+</xmp>
+
+Which will generate the following code (with `-Os`, but the argument
+holds for `-O3` as well):
+
+
+```
+ 1 greet(Scout*):
+ 2         subq    $8, %rsp
+ 3         movq    (%rdi), %rax
+ 4         call    *(%rax)
+ 5         popq    %rdx
+ 6         movq    %rax, %rsi
+ 7         movl    $.LC0, %edi
+ 8         xorl    %eax, %eax
+ 9         jmp     printf
+```
+
+Now look at a function that takes a `const retain_ptr&`:
+
+<xmp>
+void greet(const retain_ptr<Scout>& scout)
+{
+  printf("Hello %s", scout->Name());
+}
+</xmp>
+
+It will generate:
+
+```
+ 1 greet(const retain_ptr<Scout>&):
+ 2         subq    $8, %rsp
+ 3         movq    (%rdi), %rdi   <--- HERE
+ 4         movq    (%rdi), %rax
+ 5         call    *(%rax)
+ 6         popq    %rdx
+ 7         movq    %rax, %rsi
+ 8         movl    $.LC0, %edi
+ 9         xorl    %eax, %eax
+10         jmp     printf
+```
+
+Look at line 3. We have an additional indirect load.
+
+This might seem like a small thing, but it will add up in a large
+codebase.
+
+## Extrapolating from there
+
+If we should always pass by pointer, then getters should return by
+pointer too:
+
+<xmp>
+struct Expedition {
+  Scout* getScout() { return scout_.get(); }
+  retain_ptr<Scout> scout_;
+};
+
+void start()
+{
+  Expedition journeyEast;
+  greet(journeyEast.getScout());  // As opposed to getScout().get().
+}
+</xmp>
+
+Of course the `Scout*`'s lifetime is scoped to `journeyEast`'s
+lifetime. While we currently rely on code review and Address Sanitizer
+to defend against dangling pointers. We hope that we will have better
+lifetime checking in the future. See the [Core Guidelines Lifetime
+profile](https://github.com/isocpp/CppCoreGuidelines/blob/master/docs/Lifetime.pdf).
+
+## Retaining arguments
+
+When we want to retain a result or a passed in argument `operator=`
+is the natural tool to use:
+
+<xmp>
+struct Expedition {
+  ...
+  void setScout(Scout* scout) { scout_ = scout; }   // operatpr=
+  ...
+};
+
+static retain_ptr<Scout> sCave;
+void exploreCave(Expedition& e)
+{
+  sCave = e.getScout();                             // operator=
+  e.setScout(nullptr);
+}
+</xmp>
+
+## `adopt` / `release` still required
+
+Of course we still need the ability to "adopt" and [[P1132R1]]
+`out_ptr` helps us here:
+
+<xmp>
+
+extern void Adventure_CreateScout(Scout**);
+
+retain_ptr<Scout> recruit()
+{
+  retain_ptr<Scout> scout;
+  Adventure_CreateScout(std::out_ptr(scout, adopt_object_t()));
+  return scout;
+}
+</xmp>
+
+Adoption is typically only used at the interface with "C" APIs,
+and should be less frequent than parameter passing and result
+returning.
+
+<pre class=biblio>
+{
+    "lifetime": {
+        "title": "Lifetime safety: Preventing common dangling",
+        "authors": ["Herb Sutter"],
+        "date": "25 September 2018"
+    }
+}
+</pre>
