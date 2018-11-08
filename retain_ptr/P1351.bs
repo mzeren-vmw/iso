@@ -1,5 +1,5 @@
 <pre class='metadata'>
-Title: Feedback on intrusive smart pointers
+Title: Implementation experience with intrusive smart pointers
 Status: D
 Shortname: D1351
 Group: WG21
