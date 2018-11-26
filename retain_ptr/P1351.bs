@@ -1,12 +1,13 @@
 <pre class='metadata'>
 Title: Implementation experience with intrusive smart pointers
-Status: D
+Status: P
 Shortname: D1351
 Group: WG21
 Revision: 0
 Editor: Mark Zeren, VMware, mzeren@vmware.com
-Date: 2018-11-07
+Date: 2018-11-26
 Audience: LEWGI
+Audience: LEWG
 Abstract: Provide feedback for [[P0468R1]] based on experience with intrusive smart pointers at VMware.
 URL: http://wg21.link/P1351
 Markup Shorthands: markdown yes
@@ -15,14 +16,76 @@ Default Highlight: C++
 
 # Introduction
 
-This document provides feedback for [[P0468R1]] based on experience
-with intrusive smart pointers at VMware.
+This document provides an experience report on unse of intrusive smart
+pointers at VMware. The intent is to inform the discussion of
+[[P0468R1]].
 
-Note: this is an early draft. It’s known to be incomplet and
-incorrekt, and it has lots of bad format<em>t</em>ing. Additional sections
-will appear in the post-San-Diego-meeting mailing.
+At VMware we have a relatively widely used intrusive pointer template
+class. For purposes of this discussion, let's call it `vm_ptr`. The
+implementation of `vm_ptr` is a derivative of `boost::intrusive_ptr`.
+There are a couple of varriances around extension points, etc., but
+for this disucssion the key difference from `intrusive_ptr` is that
+*lvalues* of `vm_ptr` implicitly convert to `T*`.
 
-# Retain by default
+## `vm_ptr` Partial Synopsis
+
+The following summarizes the member functions relevant to this paper
+(names are changed):
+
+<xmp>
+template<typename T>
+class vm_ptr {
+public:
+  vm_ptr();
+  vm_ptr(nullptr_t);
+  vm_ptr(T*);                       // Not explicit. Retains.
+  vm_ptr& operator=(T*);            // Retains.
+  ...
+  operator T*() const &;            // Implicit for lvalues.
+  operator T*() const && = delete;  // Deleted for rvalues.
+  ...
+  T *get() const;  // Explicit cast. "Yellow flag" to reviewers.
+  ...
+  void adopt(T*);  // Adopt. "Red flag" to reviewers.
+  T *release();    // Release. "Red flag" to reviewers.
+};
+</xmp>
+
+# Intrusive is Different
+
+Peter Dimov summarized this nicely in a private email thread:
+<blockquote>
+
+Intrusively-counted smart pointers are qualitatively different from
+`shared_ptr`, with the most important difference being that conversion
+from raw pointer is safe and does the right thing. That is, if you
+have `shared_ptr<T> p1, p2` and you do `p1 = p2.get()` that's a
+disaster, but for `intrusive_ptr` it just works.
+
+</blockquote>
+
+# `vm_ptr` vs. `shared_ptr`
+
+`vm_ptr` is more efficient than `shared_ptr` for the typical use case.
+Replacing shared_ptr with vm_ptr generates better code. `shared_ptr`
+has has overhead:
+
+* Interior pointer support requires that each `shared_ptr` instance
+  contain *two* pointers. One T* and one pointer to the control block.
+  `vm_ptr` has only one pointer since the control block is embedded in
+  T*.
+
+* `weak_ptr` support requires that the control block manage *two*
+  reference counts. `vm_ptr` does not provide weak reference counting,
+  but it also does not preclude it. We have types that are managed by
+  `vm_ptr` and which also support weak references.
+
+# Interaction with C APIs
+
+We do not use `vm_ptr` with C APIs. So far `unique_ptr` plus our own
+hacked up `out_ptr` have sufficed.
+
+# Pass by Pointer
 
 Passing a pointer generates better code than passing a smart pointer
 by reference. With this pass-by-pointer pattern, intrusive smart
